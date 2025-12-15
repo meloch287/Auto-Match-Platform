@@ -17,6 +17,11 @@
     "auto": "Auto",
     "auto_in_development": "🚧 Auto section is under development. Coming soon!"
   },
+  "deal_type": {
+    "select": "Select deal type:",
+    "sale": "Buy/Sell",
+    "rent": "Rent"
+  },
   "categories": {
     "select": "Select property category:",
     "private_house": "Private House / Dacha",
@@ -336,6 +341,88 @@
     "saved": "✅ Changes saved!",
     "current": "Current value",
     "current_values": "Current values"
+  },
+  "auto": {
+    "title": "🚗 Auto",
+    "sale": "Buy/Sell Auto",
+    "rent": "Rent Auto",
+    "brand": "Brand",
+    "model": "Model",
+    "year": "Year",
+    "mileage": "Mileage (km)",
+    "price": "Price (AZN)",
+    "enter_brand": "🚗 Enter car brand:",
+    "enter_model": "📝 Enter model:",
+    "enter_year": "📅 Enter year (e.g.: 2020):",
+    "enter_year_range": "📅 Enter year range (min-max), e.g.: 2015-2023",
+    "enter_mileage": "🛣️ Enter mileage in km:",
+    "enter_mileage_range": "🛣️ Enter mileage range (min-max), e.g.: 0-100000",
+    "enter_price": "💰 Enter price (AZN):",
+    "enter_price_range": "💰 Enter price range (min-max), e.g.: 10000-50000",
+    "enter_city": "🏙️ Enter city:",
+    "enter_description": "📝 Enter description (or skip):",
+    "select_fuel": "⛽ Select fuel type:",
+    "select_transmission": "⚙️ Select transmission:",
+    "select_body": "🚙 Select body type:",
+    "select_rental_class": "🎯 Select car class:",
+    "enter_rental_days": "📅 How many days do you need?",
+    "enter_price_per_day": "💰 Enter price per day (AZN):",
+    "fuel": {
+      "petrol": "Petrol",
+      "diesel": "Diesel",
+      "gas": "Gas",
+      "hybrid": "Hybrid",
+      "electric": "Electric"
+    },
+    "transmission": {
+      "manual": "Manual",
+      "automatic": "Automatic"
+    },
+    "body": {
+      "sedan": "Sedan",
+      "hatchback": "Hatchback",
+      "suv": "SUV",
+      "crossover": "Crossover",
+      "wagon": "Wagon",
+      "coupe": "Coupe",
+      "minivan": "Minivan",
+      "pickup": "Pickup",
+      "convertible": "Convertible"
+    },
+    "rental_class": {
+      "economy": "Economy",
+      "business": "Business",
+      "premium": "Premium",
+      "crossover": "Crossover",
+      "suv": "SUV",
+      "minivan": "Minivan"
+    },
+    "respond": "Respond",
+    "show_contacts": "Show seller contacts",
+    "write_via_bot": "Write via bot",
+    "interested": "Great! You're interested in:\n{car_info}\n\nHow would you like to proceed?",
+    "contact_request_sent": "📩 Contact request sent to seller.\nWaiting for approval.",
+    "write_message": "✍️ Write your message to seller:",
+    "message_sent": "✅ Message sent to seller!",
+    "new_response": "📩 New response to your listing:\n{car_info}\n\nMessage from buyer:\n{message}",
+    "contact_request": "📞 Buyer requests your contacts.\n\nListing: {car_info}\n\nShow contacts?",
+    "contacts_approved": "✅ Seller approved contact sharing!\n\n📞 Contact: {contact}",
+    "contacts_rejected": "❌ Seller declined contact request.",
+    "no_matches": "🔍 No matching listings found yet.",
+    "matches_found": "🎯 Found matches for your request!",
+    "listing_created": "✅ Your listing sent for moderation!",
+    "requirement_created": "✅ Your request created! We'll notify you about matches."
+  },
+  "rental": {
+    "title": "🏠 Property Rental",
+    "price_per_month": "Price per month (AZN)",
+    "enter_price_per_month": "💰 Enter monthly rent (AZN):",
+    "min_months": "Minimum term (months)",
+    "enter_min_months": "📅 Enter minimum rental term (months):",
+    "deposit": "Deposit (AZN)",
+    "enter_deposit": "💰 Enter deposit amount (AZN):",
+    "max_deposit": "Maximum deposit",
+    "enter_max_deposit": "💰 Enter maximum deposit (AZN):"
   },
   "subscription": {
     "title": "⭐ Premium",

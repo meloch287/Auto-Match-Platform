@@ -109,3 +109,50 @@ class RequirementEditStates(StatesGroup):
     edit_rooms_max = State()
     edit_area_min = State()
     edit_area_max = State()
+
+
+# ============ AUTO STATES ============
+
+class AutoListingStates(StatesGroup):
+    """States for creating auto listing."""
+    brand = State()
+    model = State()
+    year = State()
+    mileage = State()
+    engine_volume = State()
+    fuel_type = State()
+    transmission = State()
+    body_type = State()
+    color = State()
+    price = State()
+    city = State()
+    description = State()
+    photos = State()
+    confirmation = State()
+
+
+class AutoRequirementStates(StatesGroup):
+    """States for creating auto requirement (buyer search)."""
+    brands = State()
+    year_range = State()
+    price_range = State()
+    mileage_max = State()
+    fuel_type = State()
+    transmission = State()
+    body_type = State()
+    city = State()
+    confirmation = State()
+
+
+class MatchBrowseStates(StatesGroup):
+    """States for browsing matched listings."""
+    viewing = State()
+    respond_choice = State()
+    writing_message = State()
+    waiting_seller_approval = State()
+
+
+class BotChatStates(StatesGroup):
+    """States for in-bot chat between buyer and seller."""
+    active_chat = State()
+    writing_reply = State()

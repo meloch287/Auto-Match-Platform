@@ -9,10 +9,17 @@ from app.bot.keyboards.builders import (
     build_language_keyboard,
     build_role_keyboard,
     build_market_type_keyboard,
+    build_deal_type_keyboard,
     build_categories_keyboard,
 )
 from app.bot.keyboards.callbacks import LanguageCallback, RoleCallback
-from app.bot.states import OnboardingStates, ListingStates, RequirementStates
+from app.bot.states import (
+    OnboardingStates, 
+    ListingStates, 
+    RequirementStates,
+    AutoListingStates,
+    AutoRequirementStates,
+)
 
 router = Router(name="onboarding")
 
@@ -144,58 +151,131 @@ async def process_market_type_selection(
         return
     
     if market_type == "auto":
-        # Show "in development" message
-        await callback.answer(_("market.auto_in_development"), show_alert=True)
+        # Show deal type selection for auto
+        await callback.answer()
+        await state.update_data(market_type="auto")
+        await callback.message.edit_text(
+            _("deal_type.select"),
+            reply_markup=build_deal_type_keyboard(_),
+        )
+        await state.set_state(OnboardingStates.market_type_select)
         return
     
-    # Real estate flow - check limits and continue
+    # Real estate flow - show deal type selection (sale/rent)
+    await callback.answer()
+    await state.update_data(market_type="real_estate")
+    await callback.message.edit_text(
+        _("deal_type.select"),
+        reply_markup=build_deal_type_keyboard(_, "real_estate"),
+    )
+
+@router.callback_query(F.data.startswith("deal:"))
+async def process_deal_type_selection(
+    callback: CallbackQuery,
+    state: FSMContext,
+    _: Any,
+    user: Any,
+    db_session: Any,
+) -> None:
+    """Handle deal type selection (sale/rent) for auto or real estate."""
+    from app.services.user import UserService
+    from app.bot.handlers.auto import build_fuel_type_keyboard
+    
+    parts = callback.data.split(":")
+    
+    if parts[1] == "back":
+        # Go back to market type selection
+        await callback.answer()
+        await callback.message.edit_text(
+            _("market.select"),
+            reply_markup=build_market_type_keyboard(_),
+        )
+        return
+    
+    market_type = parts[1]  # auto or real_estate
+    deal_type = parts[2]    # sale or rent
+    
     data = await state.get_data()
     role = data.get("current_role", "buyer")
     
+    await callback.answer()
+    await state.update_data(market_type=market_type, deal_type=deal_type)
+    
     user_service = UserService(db_session)
     
-    if role == "buyer":
-        can_create, used, max_count = await user_service.can_create_free_requirement(user)
-        if not can_create:
-            await callback.answer(
-                _("limits.requirements_exceeded").format(used=used, max=max_count),
-                show_alert=True
+    if market_type == "auto":
+        # Auto flow
+        if role == "buyer":
+            # Buyer looking for auto
+            can_create, used, max_count = await user_service.can_create_free_requirement(user)
+            if not can_create:
+                await callback.answer(
+                    _("limits.requirements_exceeded").format(used=used, max=max_count),
+                    show_alert=True
+                )
+                return
+            
+            await state.update_data(flow="auto_requirement")
+            await callback.message.edit_text(
+                _("auto.enter_brand"),
             )
-            return
-        
-        await callback.answer()
-        await state.update_data(flow="requirement", market_type="real_estate")
-        
-        # Show remaining attempts
-        remaining = max_count - used if max_count > 0 else "∞"
-        await callback.message.edit_text(
-            f"🔍 {_('roles.buyer_desc')}\n\n"
-            f"📊 {_('limits.requirements_remaining').format(remaining=remaining)}\n\n"
-            f"{_('categories.select')}",
-            reply_markup=build_categories_keyboard(_),
-        )
-        await state.set_state(RequirementStates.category)
+            await state.set_state(AutoRequirementStates.brands)
+        else:
+            # Seller posting auto
+            can_create, used, max_count = await user_service.can_create_free_listing(user)
+            if not can_create:
+                await callback.answer(
+                    _("limits.listings_exceeded").format(used=used, max=max_count),
+                    show_alert=True
+                )
+                return
+            
+            await state.update_data(flow="auto_listing")
+            await callback.message.edit_text(
+                _("auto.enter_brand"),
+            )
+            await state.set_state(AutoListingStates.brand)
     else:
-        can_create, used, max_count = await user_service.can_create_free_listing(user)
-        if not can_create:
-            await callback.answer(
-                _("limits.listings_exceeded").format(used=used, max=max_count),
-                show_alert=True
+        # Real estate with deal type - continue to categories
+        if role == "buyer":
+            can_create, used, max_count = await user_service.can_create_free_requirement(user)
+            if not can_create:
+                await callback.answer(
+                    _("limits.requirements_exceeded").format(used=used, max=max_count),
+                    show_alert=True
+                )
+                return
+            
+            await state.update_data(flow="requirement")
+            remaining = max_count - used if max_count > 0 else "∞"
+            deal_label = _("deal_type.sale") if deal_type == "sale" else _("deal_type.rent")
+            await callback.message.edit_text(
+                f"🔍 {_('roles.buyer_desc')} ({deal_label})\n\n"
+                f"📊 {_('limits.requirements_remaining').format(remaining=remaining)}\n\n"
+                f"{_('categories.select')}",
+                reply_markup=build_categories_keyboard(_),
             )
-            return
-        
-        await callback.answer()
-        await state.update_data(flow="listing", market_type="real_estate")
-        
-        # Show remaining attempts
-        remaining = max_count - used if max_count > 0 else "∞"
-        await callback.message.edit_text(
-            f"🏷️ {_('roles.seller_desc')}\n\n"
-            f"📊 {_('limits.listings_remaining').format(remaining=remaining)}\n\n"
-            f"{_('categories.select')}",
-            reply_markup=build_categories_keyboard(_),
-        )
-        await state.set_state(ListingStates.category)
+            await state.set_state(RequirementStates.category)
+        else:
+            can_create, used, max_count = await user_service.can_create_free_listing(user)
+            if not can_create:
+                await callback.answer(
+                    _("limits.listings_exceeded").format(used=used, max=max_count),
+                    show_alert=True
+                )
+                return
+            
+            await state.update_data(flow="listing")
+            remaining = max_count - used if max_count > 0 else "∞"
+            deal_label = _("deal_type.sale") if deal_type == "sale" else _("deal_type.rent")
+            await callback.message.edit_text(
+                f"🏷️ {_('roles.seller_desc')} ({deal_label})\n\n"
+                f"📊 {_('limits.listings_remaining').format(remaining=remaining)}\n\n"
+                f"{_('categories.select')}",
+                reply_markup=build_categories_keyboard(_),
+            )
+            await state.set_state(ListingStates.category)
+
 
 @router.message(Command("role"))
 async def cmd_role(

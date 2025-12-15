@@ -25,6 +25,12 @@ if TYPE_CHECKING:
     from app.models.reference import Category, Location
     from app.models.user import User
 
+class RequirementDealTypeEnum(str, enum.Enum):
+    """Type of deal: sale or rent."""
+    SALE = "sale"
+    RENT = "rent"
+
+
 class RequirementStatusEnum(str, enum.Enum):
 
     ACTIVE = "active"
@@ -57,12 +63,33 @@ class Requirement(BaseModel):
         ForeignKey("categories.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    
+    # Deal type: sale or rent
+    deal_type: Mapped[RequirementDealTypeEnum] = mapped_column(
+        Enum(
+            RequirementDealTypeEnum,
+            name="requirement_deal_type_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        default=RequirementDealTypeEnum.SALE,
+        nullable=False,
+    )
 
     price_min: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(15, 2),
         nullable=True,
     )
     price_max: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(15, 2),
+        nullable=True,
+    )
+    
+    # Rental specific
+    rental_months_min: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    max_deposit: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(15, 2),
         nullable=True,
     )
@@ -222,6 +249,7 @@ class Requirement(BaseModel):
         Index("idx_requirements_user_id", "user_id"),
         Index("idx_requirements_category_id", "category_id"),
         Index("idx_requirements_status", "status"),
+        Index("idx_requirements_deal_type", "deal_type"),
     )
 
     def __repr__(self) -> str:

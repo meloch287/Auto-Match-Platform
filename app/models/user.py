@@ -10,6 +10,7 @@ from app.core.database import BaseModel
 if TYPE_CHECKING:
     from app.models.listing import Listing
     from app.models.requirement import Requirement
+    from app.models.auto import AutoListing, AutoRequirement
 
 class LanguageEnum(str, enum.Enum):
 
@@ -117,6 +118,16 @@ class User(BaseModel):
     )
     requirements: Mapped[list["Requirement"]] = relationship(
         "Requirement",
+        back_populates="user",
+        lazy="selectin",
+    )
+    auto_listings: Mapped[list["AutoListing"]] = relationship(
+        "AutoListing",
+        back_populates="user",
+        lazy="selectin",
+    )
+    auto_requirements: Mapped[list["AutoRequirement"]] = relationship(
+        "AutoRequirement",
         back_populates="user",
         lazy="selectin",
     )

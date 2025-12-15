@@ -27,6 +27,12 @@ if TYPE_CHECKING:
     from app.models.reference import Category, Location
     from app.models.user import User
 
+class DealTypeEnum(str, enum.Enum):
+    """Type of deal: sale or rent."""
+    SALE = "sale"
+    RENT = "rent"
+
+
 class PaymentTypeEnum(str, enum.Enum):
 
     CASH = "cash"
@@ -76,6 +82,17 @@ class Listing(BaseModel):
         nullable=False,
     )
 
+    # Deal type: sale or rent
+    deal_type: Mapped[DealTypeEnum] = mapped_column(
+        Enum(
+            DealTypeEnum,
+            name="deal_type_enum",
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        default=DealTypeEnum.SALE,
+        nullable=False,
+    )
+
     coordinates: Mapped[Optional[str]] = mapped_column(
         Geography(geometry_type="POINT", srid=4326),
         nullable=True,
@@ -84,6 +101,20 @@ class Listing(BaseModel):
     price: Mapped[Decimal] = mapped_column(
         Numeric(15, 2),
         nullable=False,
+    )
+    
+    # Rental specific fields
+    price_per_month: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+    )
+    min_rental_months: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    deposit: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(15, 2),
+        nullable=True,
     )
     payment_type: Mapped[PaymentTypeEnum] = mapped_column(
         Enum(
@@ -228,6 +259,7 @@ class Listing(BaseModel):
         Index("idx_listings_location_id", "location_id"),
         Index("idx_listings_status", "status"),
         Index("idx_listings_price", "price"),
+        Index("idx_listings_deal_type", "deal_type"),
     )
 
     def __repr__(self) -> str:

@@ -17,6 +17,11 @@
     "auto": "Avto",
     "auto_in_development": "🚧 Avto bölməsi hazırlanır. Tezliklə əlçatan olacaq!"
   },
+  "deal_type": {
+    "select": "Əməliyyat növünü seçin:",
+    "sale": "Alqı-satqı",
+    "rent": "İcarə"
+  },
   "categories": {
     "select": "Daşınmaz əmlak kateqoriyasını seçin:",
     "private_house": "Həyət evi / Bağ evi",
@@ -336,6 +341,88 @@
     "saved": "✅ Dəyişikliklər yadda saxlanıldı!",
     "current": "Cari dəyər",
     "current_values": "Cari dəyərlər"
+  },
+  "auto": {
+    "title": "🚗 Avto",
+    "sale": "Avto alqı-satqısı",
+    "rent": "Avto icarəsi",
+    "brand": "Marka",
+    "model": "Model",
+    "year": "Buraxılış ili",
+    "mileage": "Yürüş (km)",
+    "price": "Qiymət (AZN)",
+    "enter_brand": "🚗 Avtomobilin markasını daxil edin:",
+    "enter_model": "📝 Modeli daxil edin:",
+    "enter_year": "📅 Buraxılış ilini daxil edin (məs: 2020):",
+    "enter_year_range": "📅 İl aralığını daxil edin (min-maks), məs: 2015-2023",
+    "enter_mileage": "🛣️ Yürüşü km ilə daxil edin:",
+    "enter_mileage_range": "🛣️ Yürüş aralığını daxil edin (min-maks), məs: 0-100000",
+    "enter_price": "💰 Qiyməti daxil edin (AZN):",
+    "enter_price_range": "💰 Qiymət aralığını daxil edin (min-maks), məs: 10000-50000",
+    "enter_city": "🏙️ Şəhəri daxil edin:",
+    "enter_description": "📝 Təsviri daxil edin (və ya keçin):",
+    "select_fuel": "⛽ Yanacaq növünü seçin:",
+    "select_transmission": "⚙️ Sürətlər qutusunu seçin:",
+    "select_body": "🚙 Kuzov növünü seçin:",
+    "select_rental_class": "🎯 Avto sinfini seçin:",
+    "enter_rental_days": "📅 Neçə gün lazımdır?",
+    "enter_price_per_day": "💰 Günlük qiyməti daxil edin (AZN):",
+    "fuel": {
+      "petrol": "Benzin",
+      "diesel": "Dizel",
+      "gas": "Qaz",
+      "hybrid": "Hibrid",
+      "electric": "Elektrik"
+    },
+    "transmission": {
+      "manual": "Mexanika",
+      "automatic": "Avtomat"
+    },
+    "body": {
+      "sedan": "Sedan",
+      "hatchback": "Hetçbek",
+      "suv": "Yolsuzluq",
+      "crossover": "Krossover",
+      "wagon": "Universal",
+      "coupe": "Kupe",
+      "minivan": "Miniven",
+      "pickup": "Pikap",
+      "convertible": "Kabriolet"
+    },
+    "rental_class": {
+      "economy": "Ekonom",
+      "business": "Biznes",
+      "premium": "Premium",
+      "crossover": "Krossover",
+      "suv": "Yolsuzluq",
+      "minivan": "Miniven"
+    },
+    "respond": "Cavab ver",
+    "show_contacts": "Satıcının əlaqələrini göstər",
+    "write_via_bot": "Bot vasitəsilə yaz",
+    "interested": "Əla! Sizi maraqlandırdı:\n{car_info}\n\nNecə davam etmək istəyirsiniz?",
+    "contact_request_sent": "📩 Əlaqə sorğusu satıcıya göndərildi.\nTəsdiq gözlənilir.",
+    "write_message": "✍️ Satıcıya mesajınızı yazın:",
+    "message_sent": "✅ Mesaj satıcıya göndərildi!",
+    "new_response": "📩 Elanınıza yeni cavab:\n{car_info}\n\nAlıcıdan mesaj:\n{message}",
+    "contact_request": "📞 Alıcı əlaqələrinizi istəyir.\n\nElan: {car_info}\n\nƏlaqələri göstərmək?",
+    "contacts_approved": "✅ Satıcı əlaqə paylaşımını təsdiqlədi!\n\n📞 Əlaqə: {contact}",
+    "contacts_rejected": "❌ Satıcı əlaqə sorğusunu rədd etdi.",
+    "no_matches": "🔍 Hələ uyğun elan tapılmadı.",
+    "matches_found": "🎯 Sorğunuza uyğun elanlar tapıldı!",
+    "listing_created": "✅ Elanınız moderasiyaya göndərildi!",
+    "requirement_created": "✅ Sorğunuz yaradıldı! Uyğunluqlar barədə sizə məlumat verəcəyik."
+  },
+  "rental": {
+    "title": "🏠 Daşınmaz əmlak icarəsi",
+    "price_per_month": "Aylıq qiymət (AZN)",
+    "enter_price_per_month": "💰 Aylıq icarə qiymətini daxil edin (AZN):",
+    "min_months": "Minimum müddət (ay)",
+    "enter_min_months": "📅 Minimum icarə müddətini daxil edin (ay):",
+    "deposit": "Depozit (AZN)",
+    "enter_deposit": "💰 Depozit məbləğini daxil edin (AZN):",
+    "max_deposit": "Maksimum depozit",
+    "enter_max_deposit": "💰 Maksimum depoziti daxil edin (AZN):"
   },
   "subscription": {
     "title": "⭐ Premium",

@@ -102,6 +102,7 @@ class BotApplication:
         from app.bot.handlers.chat import router as chat_router
         from app.bot.handlers.vip import router as vip_router
         from app.bot.handlers.subscription import router as subscription_router
+        from app.bot.handlers.auto import router as auto_router
         from app.bot.middlewares import AuthMiddleware, I18nMiddleware
         
         assert self.dp is not None
@@ -117,6 +118,7 @@ class BotApplication:
         self.dp.include_router(chat_router)
         self.dp.include_router(vip_router)
         self.dp.include_router(subscription_router)
+        self.dp.include_router(auto_router)
         self.dp.include_router(common_router)
     
     async def start_polling(self) -> None:

@@ -78,6 +78,27 @@ def build_market_type_keyboard(_: Translator) -> InlineKeyboardMarkup:
     builder.adjust(1)
     return builder.as_markup()
 
+
+def build_deal_type_keyboard(_: Translator, market_type: str = "auto") -> InlineKeyboardMarkup:
+    """Build deal type selection keyboard (Sale / Rent)."""
+    builder = InlineKeyboardBuilder()
+    
+    builder.button(
+        text=f"💰 {_('deal_type.sale')}",
+        callback_data=f"deal:{market_type}:sale",
+    )
+    builder.button(
+        text=f"🔑 {_('deal_type.rent')}",
+        callback_data=f"deal:{market_type}:rent",
+    )
+    builder.button(
+        text=f"⬅️ {_('buttons.back_simple')}",
+        callback_data="deal:back",
+    )
+    
+    builder.adjust(1)
+    return builder.as_markup()
+
 def build_category_keyboard(
     categories: list[dict[str, Any]],
     _: Translator,
