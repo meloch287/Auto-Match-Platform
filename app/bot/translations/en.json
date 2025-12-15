@@ -1,0 +1,373 @@
+{
+  "welcome": {
+    "new_user": "🏠 Welcome to Auto-Match platform!\n\nThis bot will help you buy or sell real estate in Azerbaijan.\n\nPlease select your language:",
+    "returning_user": "Welcome back, {name}! 👋\n\nWhat would you like to do?",
+    "main_menu": "📋 Main Menu"
+  },
+  "roles": {
+    "select": "Select your role:",
+    "buyer": "Buyer",
+    "seller": "Seller",
+    "buyer_desc": "I'm looking for property",
+    "seller_desc": "I'm selling property"
+  },
+  "market": {
+    "select": "Select category:",
+    "real_estate": "Real Estate",
+    "auto": "Auto",
+    "auto_in_development": "🚧 Auto section is under development. Coming soon!"
+  },
+  "categories": {
+    "select": "Select property category:",
+    "private_house": "Private House / Dacha",
+    "land": "Land Plot",
+    "new_construction": "New Construction",
+    "secondary": "Secondary Market",
+    "commercial": "Commercial Property",
+    "office_warehouse": "Office / Warehouse",
+    "villa": "Villa / Cottage",
+    "other": "Other"
+  },
+  "location": {
+    "select_type": "Select location method:",
+    "city_district": "City/District",
+    "metro": "Metro Station",
+    "gps": "GPS Coordinates",
+    "select_city": "Select city:",
+    "select_district": "Select district:",
+    "select_metro": "Select metro station:",
+    "share_location": "📍 Share your location",
+    "location_received": "✅ Location received",
+    "select_multiple": "You can select multiple districts (up to 5)",
+    "max_5": "Maximum 5 districts!",
+    "select_at_least_one": "Select at least one district!"
+  },
+  "metro": {
+    "select_line": "Select metro line:",
+    "green_line": "Green Line",
+    "red_line": "Red Line",
+    "purple_line": "Purple Line"
+  },
+  "form": {
+    "price": {
+      "enter": "Enter price in AZN (Azerbaijani Manat):",
+      "enter_min": "💰 Enter minimum price (AZN):",
+      "enter_max": "💰 Enter maximum price (AZN):",
+      "enter_range": "💰 Enter price range (min - max):\nExample: 50000 - 100000",
+      "currency": "AZN",
+      "invalid": "❌ Invalid price. Please enter a valid number.",
+      "invalid_range": "❌ Invalid format. Enter range with dash: min - max"
+    },
+    "payment": {
+      "select": "Select payment type:",
+      "cash": "Cash",
+      "credit": "Credit",
+      "both": "Both"
+    },
+    "down_payment": {
+      "enter": "Enter down payment amount (AZN):",
+      "skip": "You can skip this field"
+    },
+    "rooms": {
+      "enter": "Enter number of rooms:",
+      "enter_min": "Enter minimum number of rooms:",
+      "enter_max": "Enter maximum number of rooms:",
+      "enter_range": "🛏️ Enter room range (min - max):\nExample: 2 - 4",
+      "invalid": "❌ Invalid room count. Enter a number from 1 to 20.",
+      "invalid_range": "❌ Invalid format. Enter range with dash: min - max"
+    },
+    "area": {
+      "enter": "Enter area (m²):",
+      "enter_sot": "Enter area (sotka):",
+      "enter_min": "Enter minimum area:",
+      "enter_max": "Enter maximum area:",
+      "enter_range": "📐 Enter area range in m² (min - max):\nExample: 50 - 100",
+      "invalid": "❌ Invalid area. Please enter a valid number.",
+      "invalid_range": "❌ Invalid format. Enter range with dash: min - max"
+    },
+    "floor": {
+      "enter": "Enter floor:",
+      "enter_min": "Enter minimum floor:",
+      "enter_max": "Enter maximum floor:",
+      "enter_range": "🏢 Enter floor range (min - max):\nExample: 2 - 10",
+      "not_first": "Not first floor",
+      "not_last": "Not last floor",
+      "invalid": "❌ Invalid floor. Enter a number from -2 to 50.",
+      "invalid_range": "❌ Invalid format. Enter range with dash: min - max",
+      "preferences": "Select floor preferences:"
+    },
+    "building_floors": {
+      "enter": "Enter number of floors in building:",
+      "invalid": "❌ Invalid floor count. Enter a number from 1 to 50."
+    },
+    "renovation": {
+      "select": "Select renovation status:",
+      "renovated": "Renovated",
+      "not_renovated": "Not Renovated",
+      "partial": "Partially Renovated",
+      "any": "Any"
+    },
+    "documents": {
+      "select": "Select document type:",
+      "extract": "Extract",
+      "title_deed": "Title Deed",
+      "technical": "Technical Passport",
+      "any": "Any"
+    },
+    "utilities": {
+      "gas": "Gas:",
+      "electricity": "Electricity:",
+      "water": "Water:",
+      "available": "Available",
+      "not_available": "Not Available",
+      "any": "Any"
+    },
+    "heating": {
+      "select": "Select heating type:",
+      "central": "Central",
+      "individual": "Individual",
+      "combi": "Combi",
+      "none": "None",
+      "any": "Any"
+    },
+    "age": {
+      "select": "Select property age:",
+      "new": "New (<5 years)",
+      "medium": "Medium (5-20 years)",
+      "old": "Old (>20 years)",
+      "any": "Any"
+    },
+    "description": {
+      "enter": "Enter description (max 1000 characters):",
+      "enter_comments": "Enter additional comments (max 500 characters):"
+    },
+    "photos": {
+      "upload": "📷 Send photos (3-15):",
+      "received": "✅ Received {count} photos. You can send more or press \"Skip\".",
+      "need_more": "📷 Received {count}/{min} photos. Send more.",
+      "min_required": "❌ Minimum 3 photos required",
+      "max_exceeded": "❌ Maximum 15 photos allowed"
+    },
+    "video": {
+      "enter": "Enter video link (YouTube/Vimeo):",
+      "invalid": "❌ Invalid video link"
+    }
+  },
+  "listing": {
+    "created": "✅ Your listing has been submitted for moderation!\n\nOnce approved by admin, Auto-Match will notify matching buyers.",
+    "summary": "Your Listing",
+    "approved": "✅ Your listing has been approved and is now active!",
+    "rejected": "❌ Your listing was rejected.\nReason: {reason}",
+    "updated": "✅ Your listing has been updated.",
+    "deleted": "✅ Your listing has been deleted.",
+    "deactivated": "✅ Your listing has been deactivated.",
+    "renewed": "✅ Your listing has been renewed.",
+    "status": {
+      "pending": "⏳ Pending Moderation",
+      "active": "✅ Active",
+      "rejected": "❌ Rejected",
+      "expired": "⏰ Expired",
+      "inactive": "💤 Inactive",
+      "sold": "🎉 Sold"
+    }
+  },
+  "requirement": {
+    "created": "✅ Your requirement has been created!\n\nAuto-Match is searching for matching listings. We'll notify you of matches.",
+    "updated": "✅ Your requirement has been updated. Searching for new matches...",
+    "deleted": "✅ Your requirement has been deleted.",
+    "deactivated": "✅ Your requirement has been deactivated.",
+    "renewed": "✅ Your requirement has been renewed.",
+    "summary": "Your Requirement",
+    "confirm_to_start": "Press \"Confirm\" to start Auto-Match search!"
+  },
+  "match": {
+    "new": "🎯 New match found!\n\nMatch: {score}%",
+    "view": "View",
+    "contact": "Contact",
+    "reject": "Reject",
+    "rejected": "✅ Match rejected.",
+    "no_matches": "No matches found yet."
+  },
+  "chat": {
+    "started": "💬 Anonymous chat started.\n\nYou are: {alias}",
+    "reveal": "Reveal Contact",
+    "report": "Report",
+    "close": "Close",
+    "reveal_request": "🔓 {alias} wants to share contact information.\n\nDo you agree?",
+    "reveal_confirmed": "✅ Contact information shared:\n\n{contact}",
+    "reveal_pending": "⏳ Waiting for the other party's consent...",
+    "reported": "✅ Your report has been submitted.",
+    "closed": "✅ Chat closed."
+  },
+  "menu": {
+    "new_listing": "New Listing",
+    "new_requirement": "New Requirement",
+    "my_listings": "My Listings",
+    "my_requirements": "My Requirements",
+    "matches": "Matches",
+    "chats": "Chats",
+    "settings": "Settings",
+    "help": "Help"
+  },
+  "buttons": {
+    "back": "⬅️ Back",
+    "back_simple": "Back",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "skip": "Skip",
+    "yes": "Yes",
+    "no": "No",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deactivate": "Deactivate",
+    "renew": "Renew",
+    "start_over": "🔄 Restart",
+    "change_language": "🌐 Language",
+    "cancelled": "❌ Operation cancelled."
+  },
+  "errors": {
+    "general": "❌ An error occurred. Please try again.",
+    "rate_limited": "⏳ Too many requests. Please wait a moment.",
+    "blocked": "🚫 Your account has been blocked.",
+    "not_found": "❌ Not found.",
+    "invalid_input": "❌ Invalid input. Please try again.",
+    "session_expired": "⏰ Session expired. Please type /start.",
+    "unknown_command": "❌ Unknown command. Type /help for available commands."
+  },
+  "help": {
+    "title": "📚 Help",
+    "commands": "Available commands:\n\n/start - Start\n/help - Help\n/cancel - Cancel\n/settings - Settings\n/my_requests - My requests",
+    "simple": "📚 Help\n\nThis bot helps you buy and sell real estate in Azerbaijan.\n\nAvailable commands:\n/start - Start over\n/help - Show help\n/cancel - Cancel current operation\n/settings - Language settings\n/my_requests - My requests (buyer)\n/my_listings - My listings (seller)"
+  },
+  "settings": {
+    "title": "⚙️ Settings",
+    "language": "🌐 Language: {lang}",
+    "change_language": "Change Language",
+    "change_role": "Change Role",
+    "notifications": "🔔 Notifications",
+    "current_language": "🌐 Current language"
+  },
+  "listings": {
+    "my_listings": "📋 My Listings",
+    "empty": "You don't have any listings yet.",
+    "detail": "📋 Listing Details",
+    "select_field_to_edit": "Select field to edit:",
+    "deleted": "✅ Listing deleted.",
+    "deactivated": "✅ Listing deactivated.",
+    "renewed": "✅ Listing renewed."
+  },
+  "requirements": {
+    "my_requirements": "📝 My Requirements",
+    "empty": "You don't have any requirements yet.",
+    "detail": "📝 Requirement Details",
+    "deleted": "✅ Requirement deleted.",
+    "deactivated": "✅ Requirement deactivated."
+  },
+  "matches": {
+    "my_matches": "🎯 My Matches",
+    "empty": "No matches found yet.",
+    "detail": "🎯 Match Details"
+  },
+  "chats": {
+    "my_chats": "💬 My Chats",
+    "empty": "No active chats.",
+    "created": "💬 Anonymous chat created!",
+    "anonymous_notice": "Your identity is hidden. Use aliases to communicate.",
+    "message_sent": "✅ Message sent.",
+    "reveal_requested": "🔓 Reveal request sent. Waiting for consent...",
+    "reveal_declined": "❌ Contact reveal declined."
+  },
+  "profile": {
+    "title": "👤 Profile"
+  },
+  "vip": {
+    "title": "⭐ VIP Upgrade",
+    "select_listing": "Select a listing to upgrade to VIP:",
+    "no_listings": "You don't have any active listings to upgrade.",
+    "select_duration": "Select VIP duration:",
+    "duration_7": "7 days",
+    "duration_30": "30 days",
+    "duration_90": "90 days",
+    "confirm": "Confirm VIP upgrade for {days} days?",
+    "price_info": "💰 Price: {price} AZN",
+    "success": "✅ Your listing has been upgraded to VIP!\n\n⭐ VIP Status: Active\n📅 Expires: {expires_at}\n\nYour listing will now appear with priority in search results.",
+    "already_vip": "This listing is already VIP until {expires_at}.",
+    "cancelled": "❌ VIP upgrade cancelled.",
+    "badge": "⭐ VIP"
+  },
+  "limits": {
+    "title": "Limits",
+    "listings_exceeded": "❌ You've reached the free listings limit ({used}/{max} per month).\n\nSubscribe for unlimited listings!",
+    "requirements_exceeded": "❌ You've reached the free requests limit ({used}/{max} per month).\n\nSubscribe for unlimited search!",
+    "listings_remaining": "Free listings remaining: {remaining}",
+    "requirements_remaining": "Free requests remaining: {remaining}",
+    "listings_label": "Listings (seller)",
+    "requirements_label": "Requests (buyer)",
+    "remaining": "remaining",
+    "unlimited": "Unlimited listings and requests!"
+  },
+  "edit": {
+    "select_field": "✏️ Select field to edit:",
+    "price": "Price",
+    "rooms": "Rooms",
+    "area": "Area",
+    "description": "Description",
+    "price_min": "Min price",
+    "price_max": "Max price",
+    "rooms_min": "Min rooms",
+    "rooms_max": "Max rooms",
+    "area_min": "Min area",
+    "area_max": "Max area",
+    "enter_price": "💰 Enter new price (AZN):",
+    "enter_rooms": "🏠 Enter number of rooms:",
+    "enter_area": "📐 Enter area (m²):",
+    "enter_description": "📝 Enter description:",
+    "enter_price_min": "💰 Enter minimum price (AZN):",
+    "enter_price_max": "💰 Enter maximum price (AZN):",
+    "enter_rooms_min": "🏠 Enter minimum rooms:",
+    "enter_rooms_max": "🏠 Enter maximum rooms:",
+    "enter_area_min": "📐 Enter minimum area (m²):",
+    "enter_area_max": "📐 Enter maximum area (m²):",
+    "enter_value": "Enter new value:",
+    "enter_price_range": "💰 Enter price range (min-max), e.g.: 50000-100000",
+    "enter_rooms_range": "🏠 Enter rooms range (min-max), e.g.: 2-4",
+    "enter_area_range": "📐 Enter area range (min-max), e.g.: 50-100",
+    "invalid_range": "❌ Invalid format. Enter range with dash, e.g.: 100-200",
+    "saved": "✅ Changes saved!",
+    "current": "Current value",
+    "current_values": "Current values"
+  },
+  "subscription": {
+    "title": "⭐ Premium",
+    "subscribe": "Premium",
+    "extend": "⭐ Extend",
+    "status": "Status",
+    "premium": "Premium",
+    "free": "Free",
+    "expires": "Expires",
+    "days_remaining": "Days remaining",
+    "days": "days",
+    "upgrade": "Premium",
+    "choose_type": "Choose type:",
+    "subscription_option": "Subscription",
+    "packages_option": "Packages",
+    "packages_title": "📦 Packages",
+    "extra_listings": "+5 listings",
+    "extra_requirements": "+10 requests",
+    "upgrade_prompt": "Upgrade to Premium for priority notifications and more features!",
+    "view_plans": "📋 Plans",
+    "select_plan": "Select a subscription plan:",
+    "plan": "Plan",
+    "price": "Price",
+    "duration": "Duration",
+    "confirm_purchase": "Confirm your purchase?",
+    "success": "✅ Subscription activated successfully!",
+    "purchase_failed": "❌ Purchase failed. Please try again.",
+    "invalid_plan": "❌ Invalid subscription plan.",
+    "cancelled": "❌ Subscription cancelled.",
+    "expiring_soon": "⚠️ Your subscription expires in {days} days. Renew now to keep your premium features!",
+    "package_purchased": "Package successfully purchased!",
+    "payment_pending": "Awaiting payment",
+    "payment_instructions": "Contact administrator for payment."
+  }
+}

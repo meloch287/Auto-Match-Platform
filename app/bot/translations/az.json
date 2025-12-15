@@ -1,0 +1,373 @@
+{
+  "welcome": {
+    "new_user": "🏠 Auto-Match platformasına xoş gəlmisiniz!\n\nBu bot sizə Azərbaycanda daşınmaz əmlak almaq və ya satmaq üçün kömək edəcək.\n\nZəhmət olmasa dilinizi seçin:",
+    "returning_user": "Xoş gəlmisiniz, {name}! 👋\n\nNə etmək istəyirsiniz?",
+    "main_menu": "📋 Əsas menyu"
+  },
+  "roles": {
+    "select": "Rolunuzu seçin:",
+    "buyer": "Alıcı",
+    "seller": "Satıcı",
+    "buyer_desc": "Əmlak axtarıram",
+    "seller_desc": "Əmlak satıram"
+  },
+  "market": {
+    "select": "Kateqoriya seçin:",
+    "real_estate": "Daşınmaz əmlak",
+    "auto": "Avto",
+    "auto_in_development": "🚧 Avto bölməsi hazırlanır. Tezliklə əlçatan olacaq!"
+  },
+  "categories": {
+    "select": "Daşınmaz əmlak kateqoriyasını seçin:",
+    "private_house": "Həyət evi / Bağ evi",
+    "land": "Torpaq sahəsi",
+    "new_construction": "Yeni tikili",
+    "secondary": "Köhnə tikili",
+    "commercial": "Kommersiya obyekti",
+    "office_warehouse": "Ofis / Anbar",
+    "villa": "Villa / Kottec",
+    "other": "Digər"
+  },
+  "location": {
+    "select_type": "Məkan seçim üsulunu seçin:",
+    "city_district": "Şəhər/Rayon",
+    "metro": "Metro stansiyası",
+    "gps": "GPS koordinatları",
+    "select_city": "Şəhəri seçin:",
+    "select_district": "Rayonu seçin:",
+    "select_metro": "Metro stansiyasını seçin:",
+    "share_location": "📍 Məkanınızı paylaşın",
+    "location_received": "✅ Məkan qəbul edildi",
+    "select_multiple": "Bir neçə rayon seçə bilərsiniz (maksimum 5)",
+    "max_5": "Maksimum 5 rayon!",
+    "select_at_least_one": "Ən azı bir rayon seçin!"
+  },
+  "metro": {
+    "select_line": "Metro xəttini seçin:",
+    "green_line": "Yaşıl xətt",
+    "red_line": "Qırmızı xətt",
+    "purple_line": "Bənövşəyi xətt"
+  },
+  "form": {
+    "price": {
+      "enter": "Qiyməti daxil edin (AZN):",
+      "enter_min": "💰 Minimum qiyməti daxil edin (AZN):",
+      "enter_max": "💰 Maksimum qiyməti daxil edin (AZN):",
+      "enter_range": "💰 Qiymət aralığını daxil edin (min - maks):\nMəsələn: 50000 - 100000",
+      "currency": "AZN",
+      "invalid": "❌ Yanlış qiymət. Zəhmət olmasa düzgün rəqəm daxil edin.",
+      "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks"
+    },
+    "payment": {
+      "select": "Ödəniş növünü seçin:",
+      "cash": "Nağd",
+      "credit": "Kredit",
+      "both": "Hər ikisi"
+    },
+    "down_payment": {
+      "enter": "İlkin ödəniş məbləğini daxil edin (AZN):",
+      "skip": "Bu sahəni keçə bilərsiniz"
+    },
+    "rooms": {
+      "enter": "Otaq sayını daxil edin:",
+      "enter_min": "Minimum otaq sayını daxil edin:",
+      "enter_max": "Maksimum otaq sayını daxil edin:",
+      "enter_range": "🛏️ Otaq aralığını daxil edin (min - maks):\nMəsələn: 2 - 4",
+      "invalid": "❌ Yanlış otaq sayı. 1-dən 20-yə qədər rəqəm daxil edin.",
+      "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks"
+    },
+    "area": {
+      "enter": "Sahəni daxil edin (m²):",
+      "enter_sot": "Sahəni daxil edin (sot):",
+      "enter_min": "Minimum sahəni daxil edin:",
+      "enter_max": "Maksimum sahəni daxil edin:",
+      "enter_range": "📐 Sahə aralığını m² ilə daxil edin (min - maks):\nMəsələn: 50 - 100",
+      "invalid": "❌ Yanlış sahə. Zəhmət olmasa düzgün rəqəm daxil edin.",
+      "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks"
+    },
+    "floor": {
+      "enter": "Mərtəbəni daxil edin:",
+      "enter_min": "Minimum mərtəbəni daxil edin:",
+      "enter_max": "Maksimum mərtəbəni daxil edin:",
+      "enter_range": "🏢 Mərtəbə aralığını daxil edin (min - maks):\nMəsələn: 2 - 10",
+      "not_first": "Birinci mərtəbə olmasın",
+      "not_last": "Son mərtəbə olmasın",
+      "invalid": "❌ Yanlış mərtəbə. -2-dən 50-yə qədər rəqəm daxil edin.",
+      "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks",
+      "preferences": "Mərtəbə seçimlərini seçin:"
+    },
+    "building_floors": {
+      "enter": "Binadakı mərtəbə sayını daxil edin:",
+      "invalid": "❌ Yanlış mərtəbə sayı. 1-dən 50-yə qədər rəqəm daxil edin."
+    },
+    "renovation": {
+      "select": "Təmir vəziyyətini seçin:",
+      "renovated": "Təmirli",
+      "not_renovated": "Təmirsiz",
+      "partial": "Orta təmir",
+      "any": "Fərq etməz"
+    },
+    "documents": {
+      "select": "Sənəd növünü seçin:",
+      "extract": "Çıxarış",
+      "title_deed": "Kupça",
+      "technical": "Texniki pasport",
+      "any": "Fərq etməz"
+    },
+    "utilities": {
+      "gas": "Qaz:",
+      "electricity": "Elektrik:",
+      "water": "Su:",
+      "available": "Var",
+      "not_available": "Yoxdur",
+      "any": "Fərq etməz"
+    },
+    "heating": {
+      "select": "İsitmə növünü seçin:",
+      "central": "Mərkəzi",
+      "individual": "Fərdi",
+      "combi": "Kombi",
+      "none": "Yoxdur",
+      "any": "Fərq etməz"
+    },
+    "age": {
+      "select": "Əmlakın yaşını seçin:",
+      "new": "Yeni (<5 il)",
+      "medium": "Orta (5-20 il)",
+      "old": "Köhnə (>20 il)",
+      "any": "Fərq etməz"
+    },
+    "description": {
+      "enter": "Təsvir daxil edin (maksimum 1000 simvol):",
+      "enter_comments": "Əlavə şərhlər daxil edin (maksimum 500 simvol):"
+    },
+    "photos": {
+      "upload": "📷 Şəkilləri göndərin (3-15 ədəd):",
+      "received": "✅ {count} şəkil qəbul edildi. Daha göndərə və ya «Keç» düyməsini basa bilərsiniz.",
+      "need_more": "📷 {count}/{min} şəkil qəbul edildi. Daha göndərin.",
+      "min_required": "❌ Minimum 3 şəkil tələb olunur",
+      "max_exceeded": "❌ Maksimum 15 şəkil yükləyə bilərsiniz"
+    },
+    "video": {
+      "enter": "Video linkini daxil edin (YouTube/Vimeo):",
+      "invalid": "❌ Yanlış video linki"
+    }
+  },
+  "listing": {
+    "created": "✅ Elanınız moderasiyaya göndərildi!\n\nAdmin tərəfindən təsdiqləndikdən sonra Auto-Match uyğun alıcıları xəbərdar edəcək.",
+    "summary": "Elanınız",
+    "approved": "✅ Elanınız təsdiqləndi və artıq aktivdir!",
+    "rejected": "❌ Elanınız rədd edildi.\nSəbəb: {reason}",
+    "updated": "✅ Elanınız yeniləndi.",
+    "deleted": "✅ Elanınız silindi.",
+    "deactivated": "✅ Elanınız deaktiv edildi.",
+    "renewed": "✅ Elanınız yeniləndi.",
+    "status": {
+      "pending": "⏳ Moderasiya gözləyir",
+      "active": "✅ Aktiv",
+      "rejected": "❌ Rədd edilib",
+      "expired": "⏰ Müddəti bitib",
+      "inactive": "💤 Deaktiv",
+      "sold": "🎉 Satılıb"
+    }
+  },
+  "requirement": {
+    "created": "✅ Tələbiniz uğurla yaradıldı!\n\nAuto-Match uyğun elanları axtarır. Uyğunluqlar barədə sizi xəbərdar edəcəyik.",
+    "updated": "✅ Tələbiniz yeniləndi. Yeni uyğunluqlar axtarılır...",
+    "deleted": "✅ Tələbiniz silindi.",
+    "deactivated": "✅ Tələbiniz deaktiv edildi.",
+    "renewed": "✅ Tələbiniz yeniləndi.",
+    "summary": "Tələbiniz",
+    "confirm_to_start": "Auto-Match axtarışını başlatmaq üçün «Təsdiqlə» düyməsini basın!"
+  },
+  "match": {
+    "new": "🎯 Yeni uyğunluq tapıldı!\n\nUyğunluq: {score}%",
+    "view": "Bax",
+    "contact": "Əlaqə",
+    "reject": "Rədd et",
+    "rejected": "✅ Uyğunluq rədd edildi.",
+    "no_matches": "Hələlik uyğunluq tapılmadı."
+  },
+  "chat": {
+    "started": "💬 Anonim söhbət başladı.\n\nSiz: {alias}",
+    "reveal": "Əlaqəni göstər",
+    "report": "Şikayət et",
+    "close": "Bağla",
+    "reveal_request": "🔓 {alias} əlaqə məlumatlarını paylaşmaq istəyir.\n\nRazısınız?",
+    "reveal_confirmed": "✅ Əlaqə məlumatları paylaşıldı:\n\n{contact}",
+    "reveal_pending": "⏳ Digər tərəfin razılığı gözlənilir...",
+    "reported": "✅ Şikayətiniz qeydə alındı.",
+    "closed": "✅ Söhbət bağlandı."
+  },
+  "menu": {
+    "new_listing": "Yeni elan",
+    "new_requirement": "Yeni tələb",
+    "my_listings": "Elanlarım",
+    "my_requirements": "Tələblərim",
+    "matches": "Uyğunluqlar",
+    "chats": "Söhbətlər",
+    "settings": "Parametrlər",
+    "help": "Kömək"
+  },
+  "buttons": {
+    "back": "⬅️ Geri",
+    "back_simple": "Geri",
+    "cancel": "Ləğv et",
+    "confirm": "Təsdiqlə",
+    "skip": "Keç",
+    "yes": "Bəli",
+    "no": "Xeyr",
+    "edit": "Redaktə et",
+    "delete": "Sil",
+    "deactivate": "Deaktiv et",
+    "renew": "Yenilə",
+    "start_over": "🔄 Yenidən",
+    "change_language": "🌐 Dil",
+    "cancelled": "❌ Əməliyyat ləğv edildi."
+  },
+  "errors": {
+    "general": "❌ Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.",
+    "rate_limited": "⏳ Çox tez-tez sorğu göndərirsiniz. Zəhmət olmasa bir az gözləyin.",
+    "blocked": "🚫 Hesabınız bloklanıb.",
+    "not_found": "❌ Tapılmadı.",
+    "invalid_input": "❌ Yanlış daxiletmə. Zəhmət olmasa yenidən cəhd edin.",
+    "session_expired": "⏰ Sessiyanız bitdi. Zəhmət olmasa /start yazın.",
+    "unknown_command": "❌ Naməlum əmr. Mövcud əmrlər üçün /help yazın."
+  },
+  "help": {
+    "title": "📚 Kömək",
+    "commands": "Mövcud əmrlər:\n\n/start - Başla\n/help - Kömək\n/cancel - Ləğv et\n/settings - Parametrlər\n/my_requests - Tələblərim",
+    "simple": "📚 Kömək\n\nBu bot sizə Azərbaycanda daşınmaz əmlak almaq və satmaq üçün kömək edir.\n\nMövcud əmrlər:\n/start - Yenidən başla\n/help - Kömək göstər\n/cancel - Cari əməliyyatı ləğv et\n/settings - Dil parametrləri\n/my_requests - Tələblərim (alıcı)\n/my_listings - Elanlarım (satıcı)"
+  },
+  "settings": {
+    "title": "⚙️ Parametrlər",
+    "language": "🌐 Dil: {lang}",
+    "change_language": "Dili dəyiş",
+    "change_role": "Rolu dəyiş",
+    "notifications": "🔔 Bildirişlər",
+    "current_language": "🌐 Cari dil"
+  },
+  "listings": {
+    "my_listings": "📋 Elanlarım",
+    "empty": "Hələlik elanınız yoxdur.\n\nYeni elan yaratmaq üçün «Yeni elan» düyməsini basın.",
+    "detail": "📄 Elan detalları",
+    "deleted": "✅ Elan silindi.",
+    "deactivated": "✅ Elan deaktiv edildi.",
+    "renewed": "✅ Elan yeniləndi.",
+    "select_field_to_edit": "Redaktə etmək üçün sahə seçin:"
+  },
+  "requirements": {
+    "my_requirements": "📝 Tələblərim",
+    "empty": "Hələlik tələbiniz yoxdur.\n\nYeni tələb yaratmaq üçün «Yeni tələb» düyməsini basın.",
+    "detail": "📄 Tələb detalları",
+    "deleted": "✅ Tələb silindi.",
+    "deactivated": "✅ Tələb deaktiv edildi."
+  },
+  "matches": {
+    "my_matches": "🎯 Uyğunluqlarım",
+    "empty": "Hələlik uyğunluq tapılmadı.\n\nAxtarışa başlamaq üçün tələb və ya elan yaradın.",
+    "detail": "📄 Uyğunluq detalları"
+  },
+  "chats": {
+    "my_chats": "💬 Söhbətlərim",
+    "empty": "Hələlik aktiv söhbətiniz yoxdur.",
+    "created": "✅ Söhbət yaradıldı.",
+    "anonymous_notice": "Bu anonim söhbətdir. Əlaqə məlumatlarınız gizlidir.",
+    "message_sent": "✅",
+    "reveal_requested": "🔓 Əlaqə məlumatlarını açmaq sorğusu göndərildi.",
+    "reveal_declined": "❌ Sorğu rədd edildi."
+  },
+  "profile": {
+    "title": "👤 Şəxsi kabinet"
+  },
+  "vip": {
+    "title": "⭐ VIP Status",
+    "select_listing": "VIP statusu üçün elan seçin:",
+    "no_listings": "VIP üçün aktiv elanınız yoxdur.",
+    "select_duration": "VIP müddətini seçin:",
+    "duration_7": "7 gün",
+    "duration_30": "30 gün",
+    "duration_90": "90 gün",
+    "confirm": "{days} günlük VIP statusunu təsdiqləyirsiniz?",
+    "price_info": "💰 Qiymət: {price} AZN",
+    "success": "✅ Elanınız VIP statusu aldı!\n\n⭐ VIP Status: Aktiv\n📅 Bitmə tarixi: {expires_at}\n\nElanınız artıq axtarış nəticələrində prioritetlə göstəriləcək.",
+    "already_vip": "Bu elan artıq {expires_at} tarixinə qədər VIP statusundadır.",
+    "cancelled": "❌ VIP yeniləmə ləğv edildi.",
+    "badge": "⭐ VIP"
+  },
+  "limits": {
+    "title": "Limitlər",
+    "listings_exceeded": "❌ Pulsuz elan limitinə çatdınız ({used}/{max} ayda).\n\nLimitsiz elanlar üçün abunə olun!",
+    "requirements_exceeded": "❌ Pulsuz sorğu limitinə çatdınız ({used}/{max} ayda).\n\nLimitsiz axtarış üçün abunə olun!",
+    "listings_remaining": "Qalan pulsuz elanlar: {remaining}",
+    "requirements_remaining": "Qalan pulsuz sorğular: {remaining}",
+    "listings_label": "Elanlar (satıcı)",
+    "requirements_label": "Sorğular (alıcı)",
+    "remaining": "qalıb",
+    "unlimited": "Limitsiz elan və sorğu yerləşdirmə!"
+  },
+  "edit": {
+    "select_field": "✏️ Redaktə etmək üçün sahə seçin:",
+    "price": "Qiymət",
+    "rooms": "Otaqlar",
+    "area": "Sahə",
+    "description": "Təsvir",
+    "price_min": "Min qiymət",
+    "price_max": "Maks qiymət",
+    "rooms_min": "Min otaq",
+    "rooms_max": "Maks otaq",
+    "area_min": "Min sahə",
+    "area_max": "Maks sahə",
+    "enter_price": "💰 Yeni qiymət daxil edin (AZN):",
+    "enter_rooms": "🏠 Otaq sayını daxil edin:",
+    "enter_area": "📐 Sahəni daxil edin (m²):",
+    "enter_description": "📝 Təsvir daxil edin:",
+    "enter_price_min": "💰 Minimum qiymət daxil edin (AZN):",
+    "enter_price_max": "💰 Maksimum qiymət daxil edin (AZN):",
+    "enter_rooms_min": "🏠 Minimum otaq sayı:",
+    "enter_rooms_max": "🏠 Maksimum otaq sayı:",
+    "enter_area_min": "📐 Minimum sahə (m²):",
+    "enter_area_max": "📐 Maksimum sahə (m²):",
+    "enter_value": "Yeni dəyər daxil edin:",
+    "enter_price_range": "💰 Qiymət aralığını daxil edin (min-maks), məs: 50000-100000",
+    "enter_rooms_range": "🏠 Otaq aralığını daxil edin (min-maks), məs: 2-4",
+    "enter_area_range": "📐 Sahə aralığını daxil edin (min-maks), məs: 50-100",
+    "invalid_range": "❌ Yanlış format. Tire ilə aralıq daxil edin, məs: 100-200",
+    "saved": "✅ Dəyişikliklər yadda saxlanıldı!",
+    "current": "Cari dəyər",
+    "current_values": "Cari dəyərlər"
+  },
+  "subscription": {
+    "title": "⭐ Premium",
+    "subscribe": "Premium",
+    "extend": "⭐ Uzat",
+    "status": "Status",
+    "premium": "Premium",
+    "free": "Pulsuz",
+    "expires": "Bitmə tarixi",
+    "days_remaining": "Qalan günlər",
+    "days": "gün",
+    "upgrade": "Premium",
+    "choose_type": "Növü seçin:",
+    "subscription_option": "Abunəlik",
+    "packages_option": "Paketlər",
+    "packages_title": "📦 Paketlər",
+    "extra_listings": "+5 elan",
+    "extra_requirements": "+10 sorğu",
+    "upgrade_prompt": "Prioritet bildirişlər və daha çox funksiyalar üçün Premium-a keçin!",
+    "view_plans": "📋 Planlar",
+    "select_plan": "Abunəlik planı seçin:",
+    "plan": "Plan",
+    "price": "Qiymət",
+    "duration": "Müddət",
+    "confirm_purchase": "Alışı təsdiqləyirsiniz?",
+    "success": "✅ Abunəlik uğurla aktivləşdirildi!",
+    "purchase_failed": "❌ Alış uğursuz oldu. Yenidən cəhd edin.",
+    "invalid_plan": "❌ Yanlış abunəlik planı.",
+    "cancelled": "❌ Abunəlik ləğv edildi.",
+    "expiring_soon": "⚠️ Abunəliyiniz {days} gün sonra bitir. Premium funksiyalarınızı saxlamaq üçün indi yeniləyin!",
+    "package_purchased": "Paket uğurla alındı!",
+    "payment_pending": "Ödəniş gözlənilir",
+    "payment_instructions": "Ödəniş üçün administratorla əlaqə saxlayın."
+  }
+}
