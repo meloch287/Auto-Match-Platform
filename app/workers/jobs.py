@@ -203,6 +203,267 @@ async def process_new_requirement(
         return {"requirement_id": requirement_id, "matches_created": 0, "error": str(e)}
 
 
+async def process_new_auto_listing(
+    ctx: dict[str, Any],
+    listing_id: str,
+) -> dict[str, Any]:
+    """Process a new auto listing and create matches with requirements."""
+    logger.info(f"Processing new auto listing: {listing_id}")
+
+    db: AsyncSession = ctx.get("db")
+    if not db:
+        logger.error("No database session in context")
+        return {"listing_id": listing_id, "matches_created": 0, "error": "No DB session"}
+
+    try:
+        from app.models.auto import AutoListing, AutoRequirement, AutoMatch, AutoStatusEnum
+
+        result = await db.execute(
+            select(AutoListing).where(AutoListing.id == UUID(listing_id))
+        )
+        listing = result.scalar_one_or_none()
+
+        if not listing or listing.status != AutoStatusEnum.ACTIVE:
+            return {"listing_id": listing_id, "matches_created": 0, "error": "Listing not active"}
+
+        # Find matching auto requirements
+        result = await db.execute(
+            select(AutoRequirement).where(
+                and_(
+                    AutoRequirement.status == "active",
+                    AutoRequirement.deal_type == listing.deal_type.value,
+                )
+            )
+        )
+        requirements = result.scalars().all()
+
+        matches_created = 0
+        notifications_to_send = []
+
+        for requirement in requirements:
+            # Check if match already exists
+            existing = await db.execute(
+                select(AutoMatch).where(
+                    and_(
+                        AutoMatch.auto_listing_id == listing.id,
+                        AutoMatch.auto_requirement_id == requirement.id,
+                    )
+                )
+            )
+            if existing.scalar_one_or_none():
+                continue
+
+            # Calculate score
+            score = 0
+            max_score = 0
+
+            # Brand match (30 points)
+            max_score += 30
+            if requirement.brands and listing.brand in requirement.brands:
+                score += 30
+
+            # Year match (20 points)
+            max_score += 20
+            if requirement.year_min and requirement.year_max:
+                if requirement.year_min <= listing.year <= requirement.year_max:
+                    score += 20
+            elif requirement.year_min and listing.year >= requirement.year_min:
+                score += 20
+            elif requirement.year_max and listing.year <= requirement.year_max:
+                score += 20
+            elif not requirement.year_min and not requirement.year_max:
+                score += 20
+
+            # Price match (30 points)
+            max_score += 30
+            listing_price = float(listing.price) if listing.price else 0
+            price_min = float(requirement.price_min) if requirement.price_min else 0
+            price_max = float(requirement.price_max) if requirement.price_max else float('inf')
+            if price_min <= listing_price <= price_max:
+                score += 30
+
+            # Mileage match (10 points)
+            if listing.mileage is not None and requirement.mileage_max:
+                max_score += 10
+                if listing.mileage <= requirement.mileage_max:
+                    score += 10
+
+            # City match (10 points)
+            if requirement.city:
+                max_score += 10
+                if listing.city and listing.city.lower() == requirement.city.lower():
+                    score += 10
+
+            final_score = int((score / max_score) * 100) if max_score > 0 else 0
+
+            if final_score >= 60:
+                match = AutoMatch(
+                    auto_listing_id=listing.id,
+                    auto_requirement_id=requirement.id,
+                    score=final_score,
+                    status="pending",
+                )
+                db.add(match)
+                matches_created += 1
+
+                notifications_to_send.append({
+                    "match_id": str(match.id),
+                    "user_id": str(requirement.user_id),
+                    "is_buyer": True,
+                })
+
+        await db.commit()
+
+        # Queue notifications with priority
+        redis: ArqRedis = ctx.get("redis")
+        if redis and notifications_to_send:
+            for notif in notifications_to_send:
+                await redis.enqueue_job(
+                    "queue_auto_match_notification_with_priority",
+                    notif["match_id"],
+                    notif["user_id"],
+                    notif["is_buyer"],
+                )
+
+        logger.info(f"Created {matches_created} auto matches for listing {listing_id}")
+        return {"listing_id": listing_id, "matches_created": matches_created}
+
+    except Exception as e:
+        logger.exception(f"Error processing auto listing {listing_id}: {e}")
+        return {"listing_id": listing_id, "matches_created": 0, "error": str(e)}
+
+
+async def queue_auto_match_notification_with_priority(
+    ctx: dict[str, Any],
+    match_id: str,
+    user_id: str,
+    is_buyer: bool,
+) -> dict[str, Any]:
+    """Queue auto match notification with priority based on subscription."""
+    logger.info(f"Queueing auto match notification: match={match_id}, user={user_id}")
+
+    db: AsyncSession = ctx.get("db")
+    redis: ArqRedis = ctx.get("redis")
+
+    if not db:
+        return {"match_id": match_id, "user_id": user_id, "queued": False, "error": "No DB session"}
+
+    try:
+        from app.services.notification import NotificationService
+
+        notification_service = NotificationService(db)
+        is_premium = await notification_service.is_user_premium(UUID(user_id))
+
+        if is_premium:
+            logger.info(f"Premium user {user_id}: sending immediate auto notification")
+            if redis:
+                await redis.enqueue_job(
+                    "send_auto_match_notification",
+                    match_id,
+                    user_id,
+                    is_buyer,
+                )
+            return {
+                "match_id": match_id,
+                "user_id": user_id,
+                "queued": True,
+                "is_premium": True,
+                "delay_seconds": 0,
+            }
+        else:
+            delay_seconds = await notification_service.get_notification_delay_seconds(UUID(user_id))
+            logger.info(f"Free user {user_id}: delaying auto notification by {delay_seconds} seconds")
+
+            if redis:
+                await redis.enqueue_job(
+                    "send_auto_match_notification",
+                    match_id,
+                    user_id,
+                    is_buyer,
+                    _defer_by=timedelta(seconds=delay_seconds),
+                )
+            return {
+                "match_id": match_id,
+                "user_id": user_id,
+                "queued": True,
+                "is_premium": False,
+                "delay_seconds": delay_seconds,
+            }
+
+    except Exception as e:
+        logger.exception(f"Failed to queue auto notification with priority: {e}")
+        return {"match_id": match_id, "user_id": user_id, "queued": False, "error": str(e)}
+
+
+async def send_auto_match_notification(
+    ctx: dict[str, Any],
+    match_id: str,
+    user_id: str,
+    is_buyer: bool,
+) -> dict[str, Any]:
+    """Send auto match notification to user."""
+    logger.info(f"Sending auto match notification: match={match_id}, user={user_id}")
+
+    db: AsyncSession = ctx.get("db")
+    bot = ctx.get("bot")
+
+    if not db or not bot:
+        return {"match_id": match_id, "user_id": user_id, "sent": False, "error": "Missing context"}
+
+    try:
+        from app.models.user import User
+        from app.models.auto import AutoMatch, AutoListing
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+        result = await db.execute(
+            select(User).where(User.id == UUID(user_id))
+        )
+        user = result.scalar_one_or_none()
+
+        if not user or not user.telegram_id:
+            return {"match_id": match_id, "user_id": user_id, "sent": False, "error": "User not found"}
+
+        result = await db.execute(
+            select(AutoMatch, AutoListing)
+            .join(AutoListing, AutoMatch.auto_listing_id == AutoListing.id)
+            .where(AutoMatch.id == UUID(match_id))
+        )
+        row = result.first()
+
+        if not row:
+            return {"match_id": match_id, "user_id": user_id, "sent": False, "error": "Match not found"}
+
+        match, listing = row
+
+        price = float(listing.price) if listing.price else 0
+        message = (
+            f"🚗 Найдено новое авто!\n\n"
+            f"🏷️ {listing.brand} {listing.model} ({listing.year})\n"
+            f"💰 Цена: {price:,.0f} AZN\n"
+            f"🎯 Совпадение: {match.score}%\n\n"
+            f"Используйте /matches чтобы посмотреть"
+        )
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👁️ Смотреть", callback_data=f"auto_match:view:{match_id}"),
+                InlineKeyboardButton(text="💬 Связаться", callback_data=f"auto_match:contact:{match_id}"),
+            ]
+        ])
+
+        await bot.send_message(
+            chat_id=user.telegram_id,
+            text=message,
+            reply_markup=keyboard,
+        )
+
+        return {"match_id": match_id, "user_id": user_id, "sent": True}
+
+    except Exception as e:
+        logger.exception(f"Failed to send auto notification: {e}")
+        return {"match_id": match_id, "user_id": user_id, "sent": False, "error": str(e)}
+
+
 async def send_match_notification(
     ctx: dict[str, Any],
     match_id: str,

@@ -133,3 +133,47 @@ async def delete_media(
         )
     
     return create_success_response(data={"message": "Media deleted successfully"})
+
+
+@router.get("/telegram/{file_id}")
+async def get_telegram_file(
+    file_id: str,
+) -> dict:
+    """
+    Get Telegram file URL by file_id.
+    Returns the direct URL to download the file from Telegram servers.
+    """
+    import httpx
+    from app.core.config import get_settings
+    
+    settings = get_settings()
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://api.telegram.org/bot{settings.telegram_bot_token}/getFile",
+                params={"file_id": file_id},
+                timeout=10.0,
+            )
+            data = response.json()
+            
+            if data.get("ok") and data.get("result", {}).get("file_path"):
+                file_path = data["result"]["file_path"]
+                file_url = f"https://api.telegram.org/file/bot{settings.telegram_bot_token}/{file_path}"
+                return create_success_response(data={"url": file_url})
+            
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=create_error_response(
+                    code="FILE_NOT_FOUND",
+                    message="Telegram file not found",
+                ),
+            )
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=create_error_response(
+                code="TELEGRAM_ERROR",
+                message="Failed to fetch file from Telegram",
+            ),
+        )

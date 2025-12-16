@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/select";
 import { getSettings, updateSettings, Settings } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 export function LimitsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { t } = useI18n();
 
   // Listings limit
   const [listingsLimitType, setListingsLimitType] = useState<string>("custom");
@@ -89,9 +91,9 @@ export function LimitsTab() {
     });
 
     if (result?.success) {
-      toast({ title: "Настройки сохранены" });
+      toast({ title: t('limits.saved') });
     } else {
-      toast({ title: "Ошибка сохранения", variant: "destructive" });
+      toast({ title: t('limits.save_error'), variant: "destructive" });
     }
 
     setSaving(false);
@@ -113,9 +115,9 @@ export function LimitsTab() {
             <Settings2 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-foreground">Глобальные ограничения</h2>
+            <h2 className="text-xl font-bold text-foreground">{t('limits.title')}</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Настройки лимитов для бесплатных пользователей (в месяц)
+              {t('limits.subtitle')}
             </p>
           </div>
         </div>
@@ -125,10 +127,10 @@ export function LimitsTab() {
           <div className="p-4 rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">🏷️</span>
-              <h3 className="font-semibold">Лимит объявлений</h3>
+              <h3 className="font-semibold">{t('limits.listings_limit')}</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Максимальное количество объявлений, которое бесплатный пользователь может создать в месяц
+              {t('limits.listings_desc')}
             </p>
             <div className="flex items-center gap-3">
               <Select value={listingsLimitType} onValueChange={setListingsLimitType}>
@@ -138,13 +140,13 @@ export function LimitsTab() {
                 <SelectContent>
                   <SelectItem value="unlimited">
                     <span className="flex items-center gap-2">
-                      <Infinity className="w-4 h-4" /> Безлимит
+                      <Infinity className="w-4 h-4" /> {t('limits.unlimited')}
                     </span>
                   </SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="4">4</SelectItem>
                   <SelectItem value="6">6</SelectItem>
-                  <SelectItem value="custom">Своё значение</SelectItem>
+                  <SelectItem value="custom">{t('limits.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {listingsLimitType === "custom" && (
@@ -163,10 +165,10 @@ export function LimitsTab() {
           <div className="p-4 rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">🔍</span>
-              <h3 className="font-semibold">Лимит заявок</h3>
+              <h3 className="font-semibold">{t('limits.requests_limit')}</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Максимальное количество заявок, которое бесплатный пользователь может создать в месяц
+              {t('limits.requests_desc')}
             </p>
             <div className="flex items-center gap-3">
               <Select value={requirementsLimitType} onValueChange={setRequirementsLimitType}>
@@ -176,13 +178,13 @@ export function LimitsTab() {
                 <SelectContent>
                   <SelectItem value="unlimited">
                     <span className="flex items-center gap-2">
-                      <Infinity className="w-4 h-4" /> Безлимит
+                      <Infinity className="w-4 h-4" /> {t('limits.unlimited')}
                     </span>
                   </SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="4">4</SelectItem>
                   <SelectItem value="6">6</SelectItem>
-                  <SelectItem value="custom">Своё значение</SelectItem>
+                  <SelectItem value="custom">{t('limits.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {requirementsLimitType === "custom" && (
@@ -205,11 +207,11 @@ export function LimitsTab() {
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            Сохранить
+            {t('common.save')}
           </Button>
           <Button variant="outline" onClick={loadSettings} disabled={loading}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            Сбросить
+            {t('common.reset')}
           </Button>
         </div>
       </div>

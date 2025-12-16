@@ -24,6 +24,7 @@ class MatchStatusEnum(str, enum.Enum):
 
     NEW = "new"
     VIEWED = "viewed"
+    PENDING_CONTACT = "pending_contact"
     CONTACTED = "contacted"
     REJECTED_BY_BUYER = "rejected_by_buyer"
     REJECTED_BY_SELLER = "rejected_by_seller"

@@ -5,8 +5,11 @@ from app.core.config import get_settings
 from app.workers.jobs import (
     process_new_listing,
     process_new_requirement,
+    process_new_auto_listing,
     send_match_notification,
+    send_auto_match_notification,
     queue_match_notification_with_priority,
+    queue_auto_match_notification_with_priority,
     send_delayed_match_notification,
     process_pending_delayed_notifications,
     send_batch_notifications,
@@ -53,8 +56,11 @@ class WorkerSettings:
     functions = [
         process_new_listing,
         process_new_requirement,
+        process_new_auto_listing,
         send_match_notification,
+        send_auto_match_notification,
         queue_match_notification_with_priority,
+        queue_auto_match_notification_with_priority,
         send_delayed_match_notification,
         process_pending_delayed_notifications,
         send_batch_notifications,

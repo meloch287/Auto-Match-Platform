@@ -43,6 +43,8 @@ from app.models.requirement import (
     RequirementStatusEnum,
 )
 from app.models.user import LanguageEnum, SubscriptionTypeEnum, User
+from app.models.payment import Payment, PaymentStatusEnum, PaymentTypeEnum as PaymentTypeEnumModel
+from app.models.recommended import RecommendedListing
 
 __all__ = [
     "User",
@@ -89,4 +91,10 @@ __all__ = [
     "AutoStatusEnum",
     "AutoDealTypeEnum",
     "RentalClassEnum",
+    # Payment models
+    "Payment",
+    "PaymentStatusEnum",
+    "PaymentTypeEnumModel",
+    # Recommended
+    "RecommendedListing",
 ]

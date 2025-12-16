@@ -4,12 +4,13 @@ from typing import Any, Optional
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.reference import Category
 from app.models.requirement import Requirement
+from app.core.cache import get_cities, get_districts, get_metro_stations
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ from app.bot.keyboards.builders import (
     build_categories_keyboard,
     build_location_type_keyboard,
     build_city_keyboard,
+    build_city_keyboard_static,
     build_district_keyboard,
     build_metro_line_keyboard,
     build_metro_keyboard,
@@ -54,50 +56,282 @@ async def process_category(callback: CallbackQuery, state: FSMContext, _: Any) -
 @router.callback_query(LocationCallback.filter(F.type == "city"), RequirementStates.location_type)
 async def location_city(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
     await callback.answer()
-    cities = await get_cities()
+    await state.update_data(selected_locations=[], user_lang=lang)
     await callback.message.edit_text(
         _("location.select_city"),
-        reply_markup=build_city_keyboard(cities, _, lang),
+        reply_markup=build_city_keyboard_static(_, allow_multiple=False, lang=lang),
     )
     await state.set_state(RequirementStates.location_select)
 
-@router.callback_query(LocationCallback.filter(F.type == "district"), RequirementStates.location_select)
-async def location_district(callback: CallbackQuery, callback_data: LocationCallback, state: FSMContext, _: Any, lang: str) -> None:
+
+@router.callback_query(F.data.startswith("city_select:"), RequirementStates.location_select)
+async def city_selected(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
+    """Handle city selection - single city only. If Baku, start sequential location input."""
+    city = callback.data.split(":", 1)[1]
     await callback.answer()
-    await state.update_data(city_id=callback_data.id)
-    districts = await get_districts(callback_data.id)
-    data = await state.get_data()
-    selected = data.get("selected_locations", [])
+    
+    await state.update_data(city=city, selected_locations=[city])
+    
+    # Check if Baku selected (Bakı, Баку, Baku)
+    if city.lower() in ["bakı", "баку", "baku"]:
+        # Step 1: Show districts for Baku
+        districts = get_districts("1")
+        keyboard = build_district_keyboard_with_skip(districts, _, lang=lang)
+        await callback.message.edit_text(
+            _("location.select_district"),
+            reply_markup=keyboard,
+        )
+        await state.set_state(RequirementStates.district_select)
+    else:
+        # For other cities, go directly to price
+        await callback.message.edit_text(_("form.price.enter_range"))
+        await state.set_state(RequirementStates.price_range)
+
+
+def build_district_keyboard_with_skip(
+    districts: list[dict],
+    _: Any,
+    lang: str = "az",
+) -> InlineKeyboardMarkup:
+    """Build district keyboard with skip button."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    builder = InlineKeyboardBuilder()
+    
+    name_field = f"name_{lang}"
+    for district in districts:
+        name = district.get(name_field, district.get("name_en", "Unknown"))
+        builder.button(
+            text=name,
+            callback_data=LocationCallback(type="select", id=str(district["id"])),
+        )
+    
+    builder.adjust(2)
+    
+    # Skip button
+    builder.row()
+    builder.button(text=f"⏭️ {_('buttons.skip')}", callback_data="skip_district")
+    
+    builder.row()
+    builder.button(text=_("buttons.back"), callback_data=NavigationCallback(action="back").pack())
+    
+    return builder.as_markup()
+
+
+@router.callback_query(LocationCallback.filter(F.type == "select"), RequirementStates.district_select)
+async def district_selected(callback: CallbackQuery, state: FSMContext, _: Any, lang: str, callback_data: LocationCallback) -> None:
+    """Handle district selection for Baku. Then go to metro."""
+    district_id = callback_data.id
+    await callback.answer()
+    
+    # Get district name
+    districts = get_districts("1")
+    district_name = None
+    for d in districts:
+        if str(d["id"]) == district_id:
+            district_name = d.get("name_az", d.get("name_en"))
+            break
+    
+    await state.update_data(district=district_name, district_id=district_id)
+    
+    # Step 2: Go to metro selection
+    keyboard = build_metro_line_keyboard_with_skip(_)
     await callback.message.edit_text(
-        f"{_('location.select_district')}\n{_('location.select_multiple')}\n✅ {len(selected)}/5",
-        reply_markup=build_district_keyboard(districts, _, lang, allow_multiple=True, selected=selected),
+        _("metro.select_line"),
+        reply_markup=keyboard,
+    )
+    await state.set_state(RequirementStates.metro_select)
+
+
+@router.callback_query(F.data == "skip_district", RequirementStates.district_select)
+async def skip_district(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Skip district selection, go to metro."""
+    await callback.answer()
+    
+    # Step 2: Go to metro selection
+    keyboard = build_metro_line_keyboard_with_skip(_)
+    await callback.message.edit_text(
+        _("metro.select_line"),
+        reply_markup=keyboard,
+    )
+    await state.set_state(RequirementStates.metro_select)
+
+
+def build_metro_line_keyboard_with_skip(_: Any) -> InlineKeyboardMarkup:
+    """Build metro line keyboard with skip button."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    builder = InlineKeyboardBuilder()
+    
+    builder.button(
+        text=f"🟢 {_('metro.green_line')}",
+        callback_data=LocationCallback(type="metro_line", id="green"),
+    )
+    builder.button(
+        text=f"🔴 {_('metro.red_line')}",
+        callback_data=LocationCallback(type="metro_line", id="red"),
+    )
+    builder.button(
+        text=f"🟣 {_('metro.purple_line')}",
+        callback_data=LocationCallback(type="metro_line", id="purple"),
+    )
+    
+    builder.adjust(1)
+    
+    # Skip button
+    builder.row()
+    builder.button(text=f"⏭️ {_('buttons.skip')}", callback_data="skip_metro")
+    
+    builder.row()
+    builder.button(text=_("buttons.back"), callback_data=NavigationCallback(action="back").pack())
+    
+    return builder.as_markup()
+
+
+@router.callback_query(LocationCallback.filter(F.type == "metro_line"), RequirementStates.metro_select)
+async def metro_line_selected(callback: CallbackQuery, state: FSMContext, _: Any, lang: str, callback_data: LocationCallback) -> None:
+    """Handle metro line selection."""
+    line = callback_data.id
+    await callback.answer()
+    
+    stations = get_metro_stations(line)
+    keyboard = build_metro_keyboard_with_skip(stations, _, lang=lang)
+    await callback.message.edit_text(
+        _("location.select_metro"),
+        reply_markup=keyboard,
+    )
+    await state.update_data(metro_line=line)
+
+
+def build_metro_keyboard_with_skip(
+    stations: list[dict],
+    _: Any,
+    lang: str = "az",
+) -> InlineKeyboardMarkup:
+    """Build metro station keyboard with skip button."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    builder = InlineKeyboardBuilder()
+    
+    name_field = f"name_{lang}"
+    for station in stations:
+        name = station.get(name_field, station.get("name_en", "Unknown"))
+        builder.button(
+            text=name,
+            callback_data=LocationCallback(type="metro_station", id=str(station["id"])),
+        )
+    
+    builder.adjust(2)
+    
+    # Skip button
+    builder.row()
+    builder.button(text=f"⏭️ {_('buttons.skip')}", callback_data="skip_metro")
+    
+    builder.row()
+    builder.button(text=_("buttons.back"), callback_data=LocationCallback(type="metro_back").pack())
+    
+    return builder.as_markup()
+
+
+@router.callback_query(LocationCallback.filter(F.type == "metro_station"), RequirementStates.metro_select)
+async def metro_station_selected(callback: CallbackQuery, state: FSMContext, _: Any, callback_data: LocationCallback) -> None:
+    """Handle metro station selection. Then go to landmark."""
+    station_id = callback_data.id
+    await callback.answer()
+    
+    data = await state.get_data()
+    line = data.get("metro_line", "green")
+    stations = get_metro_stations(line)
+    
+    station_name = None
+    for s in stations:
+        if str(s["id"]) == station_id:
+            station_name = s.get("name_az", s.get("name_en"))
+            break
+    
+    await state.update_data(metro_station=station_name, metro_id=station_id)
+    
+    # Step 3: Go to landmark input
+    keyboard = build_landmark_keyboard(_)
+    await callback.message.edit_text(
+        _("location.enter_landmark"),
+        reply_markup=keyboard,
+    )
+    await state.set_state(RequirementStates.landmark_input)
+
+
+@router.callback_query(F.data == "skip_metro", RequirementStates.metro_select)
+async def skip_metro(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Skip metro selection, go to landmark."""
+    await callback.answer()
+    
+    # Step 3: Go to landmark input
+    keyboard = build_landmark_keyboard(_)
+    await callback.message.edit_text(
+        _("location.enter_landmark"),
+        reply_markup=keyboard,
+    )
+    await state.set_state(RequirementStates.landmark_input)
+
+
+def build_landmark_keyboard(_: Any) -> InlineKeyboardMarkup:
+    """Build landmark input keyboard with skip button."""
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    builder = InlineKeyboardBuilder()
+    
+    builder.button(text=f"⏭️ {_('buttons.skip')}", callback_data="skip_landmark")
+    builder.row()
+    builder.button(text=_("buttons.back"), callback_data=NavigationCallback(action="back").pack())
+    
+    return builder.as_markup()
+
+
+@router.message(RequirementStates.landmark_input)
+async def landmark_input(message: Message, state: FSMContext, _: Any) -> None:
+    """Handle landmark text input."""
+    landmark = message.text.strip()[:100] if message.text else None
+    
+    if landmark:
+        await state.update_data(landmark=landmark)
+    
+    await message.answer(_("form.price.enter_range"))
+    await state.set_state(RequirementStates.price_range)
+
+
+@router.callback_query(F.data == "skip_landmark", RequirementStates.landmark_input)
+async def skip_landmark(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Skip landmark input, go to price."""
+    await callback.answer()
+    await callback.message.edit_text(_("form.price.enter_range"))
+    await state.set_state(RequirementStates.price_range)
+
+
+@router.callback_query(F.data.startswith("city_page:"), RequirementStates.location_select)
+async def city_page(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
+    """Handle city pagination for requirements."""
+    page = int(callback.data.split(":")[1])
+    await callback.answer()
+    await callback.message.edit_text(
+        _("location.select_city"),
+        reply_markup=build_city_keyboard_static(_, page=page, allow_multiple=False, lang=lang),
     )
 
-@router.callback_query(LocationCallback.filter(F.type == "select"), RequirementStates.location_select)
-async def toggle_district(callback: CallbackQuery, callback_data: LocationCallback, state: FSMContext, _: Any, lang: str) -> None:
+
+@router.callback_query(F.data == "city_confirm", RequirementStates.location_select)
+async def city_confirm(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Confirm city selection for requirements."""
     data = await state.get_data()
     selected = data.get("selected_locations", [])
-    
-    if callback_data.id in selected:
-        selected.remove(callback_data.id)
-    elif len(selected) < 5:
-        selected.append(callback_data.id)
-    else:
-        await callback.answer(_("location.max_5"), show_alert=True)
+    if not selected:
+        await callback.answer(_("location.select_at_least_one"), show_alert=True)
         return
-    
     await callback.answer()
-    await state.update_data(selected_locations=selected)
-    
-    districts = await get_districts(data.get("city_id", "1"))
-    await callback.message.edit_text(
-        f"{_('location.select_district')}\n{_('location.select_multiple')}\n✅ {len(selected)}/5",
-        reply_markup=build_district_keyboard(districts, _, lang, allow_multiple=True, selected=selected),
-    )
+    await callback.message.edit_text(_("form.price.enter_range"))
+    await state.set_state(RequirementStates.price_range)
+
+
 
 def parse_range(text: str) -> tuple[float | None, float | None]:
     """Parse range input like '12 - 34' or '12-34' into (min, max) tuple."""
-    text = text.replace(" ", "").replace(",", ".")
+    # Remove spaces and thousand separators (commas), keep decimal dots
+    text = text.replace(" ", "").replace(",", "")
     if "-" in text:
         parts = text.split("-")
         if len(parts) == 2:
@@ -134,7 +368,7 @@ async def metro_line_selected(callback: CallbackQuery, callback_data: LocationCa
 
     await callback.answer()
     await state.update_data(metro_line=callback_data.id)
-    stations = await get_metro_stations(callback_data.id)
+    stations = get_metro_stations(callback_data.id)
     await callback.message.edit_text(
         _("location.select_metro"),
         reply_markup=build_metro_keyboard(stations, _, lang),
@@ -448,26 +682,37 @@ def format_requirement_summary(data: dict, _: Any) -> str:
     lines = []
     lines.append("<b>" + _('requirement.summary') + "</b>")
     lines.append("")
-    lines.append(category_name)
-    lines.append(f"{price_min:,.0f} - {price_max:,.0f} {currency}")
-    lines.append(payment_name)
+    lines.append(f"<b>{_('form.category')}:</b> {category_name}")
+    lines.append(f"<b>{_('form.price.label')}:</b> {price_min:,.0f} - {price_max:,.0f} {currency}")
+    lines.append(f"<b>{_('form.payment.label')}:</b> {payment_name}")
     
     if data.get('down_payment'):
-        lines.append(f"{data.get('down_payment'):,.0f} {currency}")
+        lines.append(f"<b>{_('form.down_payment.label')}:</b> {data.get('down_payment'):,.0f} {currency}")
     
     if data.get('category') != 'land':
         rooms_min = data.get('rooms_min', '-')
         rooms_max = data.get('rooms_max', '-')
-        lines.append(f"{rooms_min} - {rooms_max} rooms")
+        lines.append(f"<b>{_('form.rooms.label')}:</b> {rooms_min} - {rooms_max}")
     
     area_min = data.get('area_min', 0)
     area_max = data.get('area_max', 0)
-    lines.append(f"{area_min} - {area_max} m2")
+    lines.append(f"<b>{_('form.area.label')}:</b> {area_min} - {area_max} m²")
     
     if data.get('floor_min') is not None:
         floor_min = data.get('floor_min', '-')
         floor_max = data.get('floor_max', '-')
-        lines.append(f"{floor_min} - {floor_max} floor")
+        lines.append(f"<b>{_('form.floor.label')}:</b> {floor_min} - {floor_max}")
+    
+    city = data.get('city')
+    if city:
+        lines.append(f"<b>{_('form.city')}:</b> {city}")
+        # Show district, metro, landmark separately
+        district = data.get('district') or '-'
+        metro = data.get('metro_station') or '-'
+        landmark = data.get('landmark') or '-'
+        lines.append(f"<b>{_('location.district')}:</b> {district}")
+        lines.append(f"<b>{_('location.metro')}:</b> {metro}")
+        lines.append(f"<b>{_('location.landmark')}:</b> {landmark}")
     
     if data.get('comments'):
         lines.append("")
@@ -486,7 +731,7 @@ async def confirm_requirement(
     user: Any,
     db_session: Optional[AsyncSession] = None,
 ) -> None:
-    """Confirm and submit requirement to database."""
+    """Confirm and submit requirement to database, then show matching listings."""
     await callback.answer()
     
     data = await state.get_data()
@@ -501,7 +746,7 @@ async def confirm_requirement(
             payment_type_str = data.get("payment_type")
             payment_type_enum = None
             if payment_type_str:
-                from app.models.requirement import RequirementPaymentTypeEnum, RequirementStatusEnum
+                from app.models.requirement import RequirementPaymentTypeEnum, RequirementStatusEnum, RequirementDealTypeEnum
                 payment_map = {
                     "cash": RequirementPaymentTypeEnum.CASH,
                     "credit": RequirementPaymentTypeEnum.CREDIT,
@@ -509,10 +754,17 @@ async def confirm_requirement(
                     "any": RequirementPaymentTypeEnum.ANY,
                 }
                 payment_type_enum = payment_map.get(payment_type_str)
+            else:
+                from app.models.requirement import RequirementStatusEnum, RequirementDealTypeEnum
+            
+            # Get deal type from state
+            deal_type_str = data.get("deal_type", "sale")
+            deal_type_enum = RequirementDealTypeEnum.RENT if deal_type_str == "rent" else RequirementDealTypeEnum.SALE
             
             requirement = Requirement(
                 user_id=user.id,
                 category_id=category.id,
+                deal_type=deal_type_enum,
                 price_min=Decimal(str(data.get("price_min", 0))) if data.get("price_min") else None,
                 price_max=Decimal(str(data.get("price_max", 0))) if data.get("price_max") else None,
                 payment_type=payment_type_enum,
@@ -536,14 +788,29 @@ async def confirm_requirement(
             
             db_session.add(requirement)
             await db_session.commit()
+            await db_session.refresh(requirement)
             
             logger.info(f"Created requirement {requirement.id} for user {user.id}")
+            
+            # Search for matching listings immediately
+            matches_found = await _search_and_show_matches(
+                callback, state, _, user, db_session, requirement
+            )
+            
+            if matches_found:
+                # Matches found and shown to user
+                return
         
+        # No matches found - show message with recommended button
         await state.clear()
-        
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"⭐ {_('buttons.recommended')}", callback_data="show_recommended")],
+            [InlineKeyboardButton(text=_("buttons.start_over"), callback_data="start_over")],
+        ])
         await callback.message.edit_text(
-            _("requirement.created"),
-            reply_markup=build_start_over_keyboard(_),
+            _("requirement.created_no_matches"),
+            reply_markup=keyboard,
         )
         
     except Exception as e:
@@ -553,6 +820,345 @@ async def confirm_requirement(
             reply_markup=build_start_over_keyboard(_),
         )
         await state.clear()
+
+
+async def _search_and_show_matches(
+    callback: CallbackQuery,
+    state: FSMContext,
+    _: Any,
+    user: Any,
+    db_session: AsyncSession,
+    requirement: Requirement,
+) -> bool:
+    """Search for matching listings and show them with pagination. Returns True if matches found."""
+    from app.models.listing import Listing, ListingStatusEnum, ListingMedia
+    from app.models.match import Match, MatchStatusEnum
+    from app.services.matching.scorer import MatchScorer, ListingData
+    from sqlalchemy import and_
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    # Find active listings in the same category
+    result = await db_session.execute(
+        select(Listing).where(
+            and_(
+                Listing.category_id == requirement.category_id,
+                Listing.status == ListingStatusEnum.ACTIVE,
+            )
+        )
+    )
+    listings = result.scalars().all()
+    
+    if not listings:
+        return False
+    
+    # Calculate scores and create matches
+    scorer = MatchScorer()
+    matches_data = []
+    
+    for listing in listings:
+        # Check if match already exists
+        existing = await db_session.execute(
+            select(Match).where(
+                and_(
+                    Match.listing_id == listing.id,
+                    Match.requirement_id == requirement.id,
+                )
+            )
+        )
+        existing_match = existing.scalar_one_or_none()
+        
+        if existing_match:
+            if existing_match.score >= 60:
+                matches_data.append({
+                    "match": existing_match,
+                    "listing": listing,
+                    "score": existing_match.score,
+                })
+            continue
+        
+        # Calculate score
+        from app.services.matching.scorer import RequirementData
+        listing_data = ListingData.from_model(listing)
+        # Pass empty location_ids to avoid lazy loading error
+        requirement_data = RequirementData.from_model(requirement, location_ids=[])
+        score = scorer.calculate_total_score(listing_data, requirement_data)
+        
+        if score >= 60:
+            # Create match
+            match = Match(
+                listing_id=listing.id,
+                requirement_id=requirement.id,
+                score=score,
+                status=MatchStatusEnum.NEW,
+            )
+            db_session.add(match)
+            matches_data.append({
+                "match": match,
+                "listing": listing,
+                "score": score,
+            })
+    
+    if matches_data:
+        await db_session.commit()
+    
+    if not matches_data:
+        return False
+    
+    # Sort by score descending
+    matches_data.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Store matches in state for pagination
+    await state.update_data(
+        search_matches=[str(m["match"].id) for m in matches_data],
+        search_match_index=0,
+        search_requirement_id=str(requirement.id),
+    )
+    
+    # Show first match
+    await _show_search_match(callback.message, state, _, db_session, edit=True)
+    return True
+
+
+async def _show_search_match(
+    message: Any,
+    state: FSMContext,
+    _: Any,
+    db_session: AsyncSession,
+    edit: bool = True,
+) -> None:
+    """Show a single search match with pagination."""
+    from app.models.match import Match
+    from app.models.listing import Listing, ListingMedia
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+    
+    data = await state.get_data()
+    match_ids = data.get("search_matches", [])
+    index = data.get("search_match_index", 0)
+    
+    if not match_ids:
+        await message.answer(_("matches.empty"))
+        await state.clear()
+        return
+    
+    # Ensure index is in bounds
+    index = max(0, min(index, len(match_ids) - 1))
+    total = len(match_ids)
+    
+    # Get match and listing
+    match_id = match_ids[index]
+    result = await db_session.execute(
+        select(Match, Listing)
+        .join(Listing, Match.listing_id == Listing.id)
+        .where(Match.id == match_id)
+    )
+    row = result.first()
+    
+    if not row:
+        await state.clear()
+        await message.answer(_("errors.general"))
+        return
+    
+    match, listing = row
+    
+    # Get photo
+    photo_result = await db_session.execute(
+        select(ListingMedia)
+        .where(ListingMedia.listing_id == listing.id)
+        .order_by(ListingMedia.order)
+        .limit(1)
+    )
+    media = photo_result.scalar_one_or_none()
+    photo_url = media.url if media else None
+    
+    # Build text
+    text = f"<b>📊 {_('match.title')} {index + 1}/{total}</b> 🏠\n\n"
+    text += f"🎯 {_('match.score')}: <b>{match.score}%</b>\n\n"
+    text += f"<b>📋 {_('match.listing')}:</b>\n"
+    text += f"💰 {_('listing.price')}: {float(listing.price):,.0f} AZN\n"
+    if listing.rooms:
+        text += f"🏠 {_('listing.rooms')}: {listing.rooms}\n"
+    if listing.area:
+        text += f"📐 {_('listing.area')}: {float(listing.area)} м²\n"
+    if listing.floor:
+        text += f"🏢 {_('listing.floor')}: {listing.floor}"
+        if listing.building_floors:
+            text += f"/{listing.building_floors}"
+        text += "\n"
+    if listing.is_vip:
+        text += f"\n📌 {_('listing.vip')}\n"
+    
+    # Build keyboard
+    buttons = []
+    
+    # Navigation row
+    if total > 1:
+        nav_row = []
+        if index > 0:
+            nav_row.append(InlineKeyboardButton(text=f"⬅️ {_('buttons.back_simple')}", callback_data="search_match:prev"))
+        else:
+            nav_row.append(InlineKeyboardButton(text=" ", callback_data="noop"))
+        if index < total - 1:
+            nav_row.append(InlineKeyboardButton(text=f"{_('buttons.next')} ➡️", callback_data="search_match:next"))
+        else:
+            nav_row.append(InlineKeyboardButton(text=" ", callback_data="noop"))
+        buttons.append(nav_row)
+    
+    # Contact button
+    buttons.append([
+        InlineKeyboardButton(text=f"💬 {_('buttons.contact')}", callback_data=f"search_match:contact:{match.id}")
+    ])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    # Send/edit message
+    try:
+        if photo_url:
+            if edit:
+                try:
+                    await message.edit_media(
+                        media=InputMediaPhoto(media=photo_url, caption=text, parse_mode="HTML"),
+                        reply_markup=keyboard,
+                    )
+                except Exception:
+                    await message.delete()
+                    await message.answer_photo(photo=photo_url, caption=text, reply_markup=keyboard, parse_mode="HTML")
+            else:
+                await message.answer_photo(photo=photo_url, caption=text, reply_markup=keyboard, parse_mode="HTML")
+        else:
+            if edit:
+                try:
+                    await message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+                except Exception:
+                    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+            else:
+                await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error showing search match: {e}")
+        await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "search_match:prev")
+async def search_match_prev(
+    callback: CallbackQuery,
+    state: FSMContext,
+    _: Any,
+    db_session: Optional[AsyncSession] = None,
+) -> None:
+    """Go to previous search match."""
+    await callback.answer()
+    data = await state.get_data()
+    index = data.get("search_match_index", 0)
+    matches = data.get("search_matches", [])
+    
+    new_index = max(0, index - 1)
+    await state.update_data(search_match_index=new_index)
+    
+    if db_session:
+        await _show_search_match(callback.message, state, _, db_session, edit=True)
+
+
+@router.callback_query(F.data == "search_match:next")
+async def search_match_next(
+    callback: CallbackQuery,
+    state: FSMContext,
+    _: Any,
+    db_session: Optional[AsyncSession] = None,
+) -> None:
+    """Go to next search match."""
+    await callback.answer()
+    data = await state.get_data()
+    index = data.get("search_match_index", 0)
+    matches = data.get("search_matches", [])
+    
+    new_index = min(len(matches) - 1, index + 1)
+    await state.update_data(search_match_index=new_index)
+    
+    if db_session:
+        await _show_search_match(callback.message, state, _, db_session, edit=True)
+
+
+@router.callback_query(F.data.startswith("search_match:contact:"))
+async def search_match_contact(
+    callback: CallbackQuery,
+    state: FSMContext,
+    _: Any,
+    user: Any,
+    db_session: Optional[AsyncSession] = None,
+) -> None:
+    """Contact seller from search match - send contact request."""
+    await callback.answer()
+    
+    if not db_session:
+        return
+    
+    match_id = callback.data.split(":")[2]
+    
+    from app.models.match import Match, MatchStatusEnum
+    from app.models.listing import Listing
+    from app.models.user import User
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    # Get match and listing
+    result = await db_session.execute(
+        select(Match, Listing)
+        .join(Listing, Match.listing_id == Listing.id)
+        .where(Match.id == match_id)
+    )
+    row = result.first()
+    
+    if not row:
+        await callback.message.answer(_("errors.general"))
+        return
+    
+    match, listing = row
+    
+    # Update match status to pending contact
+    match.status = MatchStatusEnum.PENDING_CONTACT
+    await db_session.commit()
+    
+    # Get seller
+    seller_result = await db_session.execute(
+        select(User).where(User.id == listing.user_id)
+    )
+    seller = seller_result.scalar_one_or_none()
+    
+    if seller and seller.telegram_id:
+        # Send contact request to seller
+        price = float(listing.price) if listing.price else 0
+        request_text = (
+            f"📩 {_('chat.contact_request')}\n\n"
+            f"🏠 {_('listing.your_listing')}:\n"
+            f"💰 {price:,.0f} AZN"
+        )
+        if listing.rooms:
+            request_text += f" | {listing.rooms} комн."
+        if listing.area:
+            request_text += f" | {float(listing.area)} м²"
+        request_text += f"\n\n🎯 {_('match.score')}: {match.score}%"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"✅ {_('buttons.accept')}", callback_data=f"cb_chat_accept:{match.id}"),
+                InlineKeyboardButton(text=f"❌ {_('buttons.decline')}", callback_data=f"cb_chat_decline:{match.id}"),
+            ]
+        ])
+        
+        try:
+            await callback.bot.send_message(
+                chat_id=seller.telegram_id,
+                text=request_text,
+                reply_markup=keyboard,
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            logger.error(f"Failed to send contact request: {e}")
+    
+    # Notify buyer
+    await callback.message.edit_text(
+        _("chat.request_sent"),
+        reply_markup=build_start_over_keyboard(_),
+    )
+    await state.clear()
 
 async def get_or_create_category(session: AsyncSession, code: str) -> Category:
 
@@ -596,12 +1202,19 @@ async def cancel_requirement(callback: CallbackQuery, state: FSMContext, _: Any)
     )
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.category)
-async def back_to_role_from_req(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
-    from app.bot.keyboards.builders import build_role_keyboard
+async def back_to_deal_type_from_req(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Go back from category to deal type selection."""
+    from app.bot.keyboards.builders import build_deal_type_keyboard
     from app.bot.states import OnboardingStates
     await callback.answer()
-    await callback.message.edit_text(_("roles.select"), reply_markup=build_role_keyboard(_))
-    await state.set_state(OnboardingStates.role_select)
+    data = await state.get_data()
+    role = data.get("current_role", "buyer")
+    market_type = data.get("market_type", "real_estate")
+    await callback.message.edit_text(
+        _("deal_type.select"),
+        reply_markup=build_deal_type_keyboard(_, market_type, role)
+    )
+    await state.set_state(OnboardingStates.market_type_select)
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.location_type)
 async def back_to_category(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
@@ -615,11 +1228,54 @@ async def back_to_location_type(callback: CallbackQuery, state: FSMContext, _: A
     await callback.message.edit_text(_("location.select_type"), reply_markup=build_location_type_keyboard(_))
     await state.set_state(RequirementStates.location_type)
 
-@router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.payment_type)
-async def back_to_price_max(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+@router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.district_select)
+async def back_to_city_select(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
+    """Go back from district select to city selection."""
     await callback.answer()
-    await callback.message.edit_text(_("form.price.enter_max"))
-    await state.set_state(RequirementStates.price_max)
+    await callback.message.edit_text(
+        _("location.select_city"),
+        reply_markup=build_city_keyboard_static(_, allow_multiple=False, lang=lang),
+    )
+    await state.set_state(RequirementStates.location_select)
+
+@router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.metro_select)
+async def back_to_district_select(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
+    """Go back from metro select to district select."""
+    await callback.answer()
+    districts = get_districts("1")
+    keyboard = build_district_keyboard_with_skip(districts, _, lang=lang)
+    await callback.message.edit_text(
+        _("location.select_district"),
+        reply_markup=keyboard,
+    )
+    await state.set_state(RequirementStates.district_select)
+
+@router.callback_query(LocationCallback.filter(F.type == "metro_back"), RequirementStates.metro_select)
+async def metro_back_to_lines(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Go back from metro stations to metro lines."""
+    await callback.answer()
+    keyboard = build_metro_line_keyboard_with_skip(_)
+    await callback.message.edit_text(
+        _("metro.select_line"),
+        reply_markup=keyboard,
+    )
+
+@router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.landmark_input)
+async def back_to_metro_select(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Go back from landmark input to metro select."""
+    await callback.answer()
+    keyboard = build_metro_line_keyboard_with_skip(_)
+    await callback.message.edit_text(
+        _("metro.select_line"),
+        reply_markup=keyboard,
+    )
+    await state.set_state(RequirementStates.metro_select)
+
+@router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.payment_type)
+async def back_to_price_range(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    await callback.answer()
+    await callback.message.edit_text(_("form.price.enter_range"))
+    await state.set_state(RequirementStates.price_range)
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.down_payment)
 async def back_to_payment_type(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
@@ -628,18 +1284,18 @@ async def back_to_payment_type(callback: CallbackQuery, state: FSMContext, _: An
     await state.set_state(RequirementStates.payment_type)
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.floor_preferences)
-async def back_to_floor_max(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+async def back_to_floor_range(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
     await callback.answer()
-    await callback.message.edit_text(_("form.floor.enter_max"))
-    await state.set_state(RequirementStates.floor_max)
+    await callback.message.edit_text(_("form.floor.enter_range"))
+    await state.set_state(RequirementStates.floor_range)
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), RequirementStates.renovation)
 async def back_to_floor_prefs(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
     await callback.answer()
     data = await state.get_data()
     if data.get("category") in ("land", "private_house"):
-        await callback.message.edit_text(_("form.area.enter_max"))
-        await state.set_state(RequirementStates.area_max)
+        await callback.message.edit_text(_("form.area.enter_range"))
+        await state.set_state(RequirementStates.area_range)
     else:
         prefs = data.get("floor_preferences", {})
         await callback.message.edit_text(_("form.floor.preferences"), reply_markup=build_floor_preferences_keyboard(_, selected=prefs))
@@ -688,80 +1344,3 @@ async def back_to_comments(callback: CallbackQuery, state: FSMContext, _: Any) -
     await callback.answer()
     await callback.message.edit_text(_("form.description.enter_comments"), reply_markup=build_skip_keyboard(_))
     await state.set_state(RequirementStates.comments)
-
-async def get_cities() -> list[dict]:
-
-    return [
-        {"id": "1", "name_az": "Bakı", "name_ru": "Баку", "name_en": "Baku"},
-        {"id": "2", "name_az": "Sumqayıt", "name_ru": "Сумгаит", "name_en": "Sumgait"},
-        {"id": "3", "name_az": "Gəncə", "name_ru": "Гянджа", "name_en": "Ganja"},
-        {"id": "4", "name_az": "Lənkəran", "name_ru": "Ленкорань", "name_en": "Lankaran"},
-        {"id": "5", "name_az": "Mingəçevir", "name_ru": "Мингечевир", "name_en": "Mingachevir"},
-    ]
-
-async def get_districts(city_id: str) -> list[dict]:
-
-    if city_id == "1":
-        return [
-            {"id": "11", "name_az": "Nəsimi", "name_ru": "Насими", "name_en": "Nasimi"},
-            {"id": "12", "name_az": "Yasamal", "name_ru": "Ясамал", "name_en": "Yasamal"},
-            {"id": "13", "name_az": "Nizami", "name_ru": "Низами", "name_en": "Nizami"},
-            {"id": "14", "name_az": "Xətai", "name_ru": "Хатаи", "name_en": "Khatai"},
-            {"id": "15", "name_az": "Binəqədi", "name_ru": "Бинагади", "name_en": "Binagadi"},
-            {"id": "16", "name_az": "Sabunçu", "name_ru": "Сабунчу", "name_en": "Sabunchu"},
-            {"id": "17", "name_az": "Suraxanı", "name_ru": "Сураханы", "name_en": "Surakhani"},
-            {"id": "18", "name_az": "Qaradağ", "name_ru": "Гарадаг", "name_en": "Garadagh"},
-        ]
-    return [{"id": f"{city_id}1", "name_az": "Mərkəz", "name_ru": "Центр", "name_en": "Center"}]
-
-METRO_STATIONS = {
-    "green": [
-        {"id": "g1", "name_az": "İçərişəhər", "name_ru": "Ичеришехер", "name_en": "Icherisheher"},
-        {"id": "g2", "name_az": "Sahil", "name_ru": "Сахил", "name_en": "Sahil"},
-        {"id": "g3", "name_az": "Cəfər Cabbarlı", "name_ru": "Джафар Джаббарлы", "name_en": "Jafar Jabbarly"},
-        {"id": "g4", "name_az": "28 May", "name_ru": "28 Мая", "name_en": "28 May"},
-        {"id": "g5", "name_az": "Nizami Gəncəvi", "name_ru": "Низами Гянджеви", "name_en": "Nizami Ganjavi"},
-        {"id": "g6", "name_az": "Elmlər Akademiyası", "name_ru": "Эмляр академиясы", "name_en": "Academy of Sciences"},
-        {"id": "g7", "name_az": "İnşaatçılar", "name_ru": "Иншаатчылар", "name_en": "Inshaatchilar"},
-        {"id": "g8", "name_az": "20 Yanvar", "name_ru": "20 Января", "name_en": "20 January"},
-        {"id": "g9", "name_az": "Memar Əcəmi", "name_ru": "Мемар Аджеми", "name_en": "Memar Ajami"},
-        {"id": "g10", "name_az": "Nəsimi", "name_ru": "Насими", "name_en": "Nasimi"},
-        {"id": "g11", "name_az": "Azadlıq prospekti", "name_ru": "Проспект Азадлыг", "name_en": "Azadlig Avenue"},
-        {"id": "g12", "name_az": "Dərnəgül", "name_ru": "Дарнагюль", "name_en": "Darnagul"},
-        {"id": "g13", "name_az": "Bakmil", "name_ru": "Бакмил", "name_en": "Bakmil"},
-        {"id": "g14", "name_az": "Gənclik", "name_ru": "Гянджлик", "name_en": "Ganjlik"},
-        {"id": "g15", "name_az": "Nəriman Nərimanov", "name_ru": "Нариман Нариманов", "name_en": "Nariman Narimanov"},
-        {"id": "g16", "name_az": "Ulduz", "name_ru": "Улдуз", "name_en": "Ulduz"},
-        {"id": "g17", "name_az": "Koroğlu", "name_ru": "Кёроглу", "name_en": "Koroglu"},
-        {"id": "g18", "name_az": "Qara Qarayev", "name_ru": "Кара Караев", "name_en": "Gara Garayev"},
-        {"id": "g19", "name_az": "Neftçilər", "name_ru": "Нефтчиляр", "name_en": "Neftchilar"},
-        {"id": "g20", "name_az": "Xalqlar Dostluğu", "name_ru": "Халглар Достлугу", "name_en": "Khalglar Dostlugu"},
-        {"id": "g21", "name_az": "Əhmədli", "name_ru": "Ахмедлы", "name_en": "Ahmadli"},
-        {"id": "g22", "name_az": "Həzi Aslanov", "name_ru": "Ази Асланов", "name_en": "Hazi Aslanov"},
-    ],
-    "red": [
-        {"id": "r1", "name_az": "İçərişəhər", "name_ru": "Ичеришехер", "name_en": "Icherisheher"},
-        {"id": "r2", "name_az": "Sahil", "name_ru": "Сахил", "name_en": "Sahil"},
-        {"id": "r3", "name_az": "Cəfər Cabbarlı", "name_ru": "Джафар Джаббарлы", "name_en": "Jafar Jabbarly"},
-        {"id": "r4", "name_az": "28 May", "name_ru": "28 Мая", "name_en": "28 May"},
-        {"id": "r5", "name_az": "Gənclik", "name_ru": "Гянджлик", "name_en": "Ganjlik"},
-        {"id": "r6", "name_az": "Nəriman Nərimanov", "name_ru": "Нариман Нариманов", "name_en": "Nariman Narimanov"},
-        {"id": "r7", "name_az": "Ulduz", "name_ru": "Улдуз", "name_en": "Ulduz"},
-        {"id": "r8", "name_az": "Koroğlu", "name_ru": "Кёроглу", "name_en": "Koroglu"},
-        {"id": "r9", "name_az": "Qara Qarayev", "name_ru": "Кара Караев", "name_en": "Gara Garayev"},
-        {"id": "r10", "name_az": "Neftçilər", "name_ru": "Нефтчиляр", "name_en": "Neftchilar"},
-        {"id": "r11", "name_az": "Xalqlar Dostluğu", "name_ru": "Халглар Достлугу", "name_en": "Khalglar Dostlugu"},
-        {"id": "r12", "name_az": "Əhmədli", "name_ru": "Ахмедлы", "name_en": "Ahmadli"},
-        {"id": "r13", "name_az": "Həzi Aslanov", "name_ru": "Ази Асланов", "name_en": "Hazi Aslanov"},
-    ],
-    "purple": [
-        {"id": "p1", "name_az": "Xocəsən", "name_ru": "Ходжасан", "name_en": "Khojasan"},
-        {"id": "p2", "name_az": "Avtovağzal", "name_ru": "Автовокзал", "name_en": "Avtovagzal"},
-        {"id": "p3", "name_az": "Memar Əcəmi", "name_ru": "Мемар Аджеми", "name_en": "Memar Ajami"},
-        {"id": "p4", "name_az": "8 Noyabr", "name_ru": "8 Ноября", "name_en": "8 November"},
-    ],
-}
-
-async def get_metro_stations(line: str) -> list[dict]:
-
-    return METRO_STATIONS.get(line, [])

@@ -40,6 +40,7 @@ async def cmd_profile(
     await state.clear()
     
     if not db_session or not user:
+        logger.error(f"Profile: db_session={db_session}, user={user}")
         await message.answer(_("errors.general"))
         return
     
@@ -48,15 +49,21 @@ async def cmd_profile(
         from app.models.user import SubscriptionTypeEnum
         
         user_service = UserService(db_session)
-        limits_info = await user_service.get_free_limits_info(user)
+        # Get fresh user from current session to avoid detached instance issues
+        fresh_user = await user_service.get_by_telegram_id(user.telegram_id)
+        if not fresh_user:
+            await message.answer(_("errors.general"))
+            return
+        
+        limits_info = await user_service.get_free_limits_info(fresh_user)
         
         # Build status text
         text = f"<b>{_('profile.title')}</b>\n\n"
         
         # Subscription status
-        is_premium = user.subscription_type != SubscriptionTypeEnum.FREE
+        is_premium = fresh_user.subscription_type != SubscriptionTypeEnum.FREE
         if is_premium:
-            expires_str = user.subscription_expires_at.strftime("%Y-%m-%d") if user.subscription_expires_at else "-"
+            expires_str = fresh_user.subscription_expires_at.strftime("%Y-%m-%d") if fresh_user.subscription_expires_at else "-"
             text += f"✅ {_('subscription.status')}: <b>{_('subscription.premium')}</b>\n"
             text += f"📅 {_('subscription.expires')}: {expires_str}\n\n"
             text += f"🎁 {_('limits.unlimited')}\n\n"
@@ -88,46 +95,15 @@ async def cmd_profile(
             
             text += f"💡 {_('subscription.upgrade_prompt')}\n\n"
         
-        # Get active listings for VIP
-        result = await db_session.execute(
-            select(Listing).where(
-                Listing.user_id == user.id,
-                Listing.status == ListingStatusEnum.ACTIVE,
-            ).order_by(Listing.created_at.desc())
-        )
-        listings = result.scalars().all()
-        
-        if not listings:
-            text += f"ℹ️ {_('vip.no_listings')}"
-            await message.answer(
-                text,
-                reply_markup=build_profile_keyboard(_, is_premium=is_premium),
-                parse_mode="HTML",
-            )
-            return
-        
-        text += f"🏠 {_('vip.select_listing')}"
-        
-        listings_data = [
-            {
-                "id": str(listing.id),
-                "price": float(listing.price),
-                "rooms": listing.rooms,
-                "area": float(listing.area),
-                "is_vip": listing.is_vip,
-            }
-            for listing in listings
-        ]
-        
+        # Show profile with Premium button
         await message.answer(
             text,
-            reply_markup=build_vip_listings_keyboard(listings_data, _),
+            reply_markup=build_profile_keyboard(_, is_premium=is_premium),
             parse_mode="HTML",
         )
-        await state.set_state(VIPStates.select_listing)
         
     except Exception as e:
-        logger.error(f"Error in /vip command: {e}")
+        logger.exception(f"Error in /profile command: {e}")
         await message.answer(_("errors.general"))
 
 @router.callback_query(VIPCallback.filter(F.action == "select"), VIPStates.select_listing)

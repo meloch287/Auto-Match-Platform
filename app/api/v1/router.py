@@ -9,6 +9,7 @@ from app.api.v1.matches import router as matches_router
 from app.api.v1.chats import router as chats_router
 from app.api.v1.reference import router as reference_router
 from app.api.v1.media import router as media_router
+from app.api.v1.payments import router as payments_router
 
 api_router = APIRouter()
 
@@ -21,6 +22,7 @@ api_router.include_router(chats_router)
 api_router.include_router(reference_router)
 api_router.include_router(media_router)
 api_router.include_router(admin_router)
+api_router.include_router(payments_router)
 
 @api_router.get("/", tags=["Root"])
 async def api_root() -> dict:

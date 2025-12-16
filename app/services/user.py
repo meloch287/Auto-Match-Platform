@@ -154,6 +154,8 @@ class UserService:
         await self.session.commit()
 
     async def get_free_limits_info(self, user: User) -> dict:
+        from app.repositories.auto import AutoListingRepository, AutoRequirementRepository
+        
         settings = get_settings()
 
         is_premium = user.subscription_type != SubscriptionTypeEnum.FREE
@@ -164,8 +166,17 @@ class UserService:
             listings_max = -1
             requirements_max = -1
         else:
-            listings_used = await self.listing_repository.count_by_user_this_month(user.id)
-            requirements_used = await self.requirement_repository.count_by_user_this_month(user.id)
+            # Count real estate listings + auto listings
+            re_listings = await self.listing_repository.count_by_user_this_month(user.id)
+            auto_listing_repo = AutoListingRepository(self.session)
+            auto_listings = await auto_listing_repo.count_by_user_this_month(user.id)
+            listings_used = re_listings + auto_listings
+            
+            # Count real estate requirements + auto requirements
+            re_requirements = await self.requirement_repository.count_by_user_this_month(user.id)
+            auto_req_repo = AutoRequirementRepository(self.session)
+            auto_requirements = await auto_req_repo.count_by_user_this_month(user.id)
+            requirements_used = re_requirements + auto_requirements
 
             if user.free_listings_limit is not None:
                 listings_max = -1 if user.free_listings_limit == 0 else user.free_listings_limit

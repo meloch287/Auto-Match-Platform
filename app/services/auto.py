@@ -85,9 +85,11 @@ class AutoListingService:
             description=description,
             status=AutoStatusEnum.PENDING_MODERATION,
         )
-        created = await self.repo.create(listing)
-        logger.info(f"Created auto listing {created.id} for user {user_id}")
-        return created
+        self.session.add(listing)
+        await self.session.flush()
+        await self.session.refresh(listing)
+        logger.info(f"Created auto listing {listing.id} for user {user_id}")
+        return listing
 
     async def add_media(
         self,
@@ -103,7 +105,10 @@ class AutoListingService:
             thumbnail_url=thumbnail_url,
             order=order,
         )
-        return await self.media_repo.create(media)
+        self.session.add(media)
+        await self.session.flush()
+        await self.session.refresh(media)
+        return media
 
     async def get_listing(self, listing_id: uuid.UUID) -> Optional[AutoListing]:
         """Get listing by ID with media."""
@@ -175,9 +180,11 @@ class AutoRequirementService:
             city=city,
             status="active",
         )
-        created = await self.repo.create(requirement)
-        logger.info(f"Created auto requirement {created.id} for user {user_id}")
-        return created
+        self.session.add(requirement)
+        await self.session.flush()
+        await self.session.refresh(requirement)
+        logger.info(f"Created auto requirement {requirement.id} for user {user_id}")
+        return requirement
 
     async def get_requirement(self, req_id: uuid.UUID) -> Optional[AutoRequirement]:
         """Get requirement by ID."""
@@ -229,8 +236,10 @@ class AutoMatchService:
                 score=score,
                 status="pending",
             )
-            created = await self.match_repo.create(match)
-            matches.append(created)
+            self.session.add(match)
+            await self.session.flush()
+            await self.session.refresh(match)
+            matches.append(match)
         
         logger.info(f"Found {len(matches)} new matches for requirement {requirement_id}")
         return matches
@@ -338,7 +347,9 @@ class AutoChatService:
             seller_alias=random.choice(SELLER_ALIASES),
             status="active",
         )
-        created = await self.chat_repo.create(chat)
+        self.session.add(chat)
+        await self.session.flush()
+        await self.session.refresh(chat)
         
         # Update match status
         match = await self.match_repo.get(match_id)
@@ -346,8 +357,8 @@ class AutoChatService:
             match.status = "contacted"
             await self.session.commit()
         
-        logger.info(f"Created auto chat {created.id} for match {match_id}")
-        return created
+        logger.info(f"Created auto chat {chat.id} for match {match_id}")
+        return chat
 
     async def get_chat(self, chat_id: uuid.UUID) -> Optional[AutoChat]:
         """Get chat with messages."""

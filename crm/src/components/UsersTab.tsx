@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, UserCheck, UserX, Loader2, RefreshCw, Trash2, Settings2 } from "lucide-react";
+import { Search, UserCheck, UserX, Loader2, RefreshCw, Trash2, Settings2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +18,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { getUsers, blockUser, unblockUser, resetUserLimits, deleteUser, updateUserLimits, User } from "@/lib/api";
+import { getUsers, blockUser, unblockUser, resetUserLimits, deleteUser, updateUserLimits, User, exportUsers, downloadBlob } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 const subscriptionColors: Record<string, string> = {
   free: "bg-muted text-muted-foreground",
@@ -52,6 +53,7 @@ export function UsersTab() {
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [userToBlock, setUserToBlock] = useState<User | null>(null);
   const [blockReason, setBlockReason] = useState("");
+  const { t } = useI18n();
 
   useEffect(() => {
     loadUsers();
@@ -77,7 +79,7 @@ export function UsersTab() {
     if (user.is_blocked) {
       const result = await unblockUser(user.id);
       if (result) {
-        toast({ title: "Пользователь разблокирован" });
+        toast({ title: t('users.unblocked') });
         loadUsers();
       }
     } else {
@@ -90,9 +92,9 @@ export function UsersTab() {
 
   const handleBlockConfirm = async (reason: string) => {
     if (!userToBlock) return;
-    const result = await blockUser(userToBlock.id, reason || "Заблокирован администратором");
+    const result = await blockUser(userToBlock.id, reason || "Blocked by admin");
     if (result) {
-      toast({ title: "Пользователь заблокирован" });
+      toast({ title: t('users.blocked_msg') });
       setBlockDialogOpen(false);
       setUserToBlock(null);
       setBlockReason("");
@@ -103,7 +105,7 @@ export function UsersTab() {
   const handleResetLimits = async (user: User) => {
     const result = await resetUserLimits(user.id);
     if (result) {
-      toast({ title: "Лимиты сброшены" });
+      toast({ title: t('users.limits_reset') });
       loadUsers();
     }
   };
@@ -117,7 +119,7 @@ export function UsersTab() {
     if (!userToDelete) return;
     const result = await deleteUser(userToDelete.id);
     if (result) {
-      toast({ title: "Пользователь удалён" });
+      toast({ title: t('users.deleted') });
       setDeleteDialogOpen(false);
       setUserToDelete(null);
       loadUsers();
@@ -159,7 +161,7 @@ export function UsersTab() {
 
     const result = await updateUserLimits(userToEditLimits.id, listingsValue, requirementsValue);
     if (result) {
-      toast({ title: "Лимиты обновлены" });
+      toast({ title: t('limits.updated') });
       setLimitsDialogOpen(false);
       setUserToEditLimits(null);
       loadUsers();
@@ -179,14 +181,14 @@ export function UsersTab() {
       <div className="glass-card p-6 animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Пользователи</h2>
-            <p className="text-sm text-muted-foreground mt-1">Всего: {users.length} пользователей</p>
+            <h2 className="text-xl font-bold text-foreground">{t('users.title')}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{t('users.total')}: {users.length}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Поиск по username или ID..."
+                placeholder={t('users.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -195,11 +197,22 @@ export function UsersTab() {
             </div>
             <Button variant="outline" size="sm" onClick={handleSearch}>
               <Search className="w-4 h-4 mr-2" />
-              Поиск
+              {t('common.search')}
             </Button>
             <Button variant="outline" size="sm" onClick={loadUsers}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Обновить
+              {t('common.refresh')}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                const blob = await exportUsers();
+                if (blob) downloadBlob(blob, 'users.csv');
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              CSV
             </Button>
           </div>
         </div>
@@ -208,13 +221,13 @@ export function UsersTab() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Telegram ID</th>
-                <th>Username</th>
-                <th>Подписка</th>
-                <th>Объявлений</th>
-                <th>Заявок</th>
-                <th>Статус</th>
-                <th className="text-center">Действия</th>
+                <th>{t('users.telegram_id')}</th>
+                <th>{t('users.username')}</th>
+                <th>{t('users.subscription')}</th>
+                <th>{t('users.listings')}</th>
+                <th>{t('users.requests')}</th>
+                <th>{t('users.status')}</th>
+                <th className="text-center">{t('users.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -244,12 +257,12 @@ export function UsersTab() {
                       {!user.is_blocked ? (
                         <>
                           <UserCheck className="w-3 h-3" />
-                          Активен
+                          {t('users.active')}
                         </>
                       ) : (
                         <>
                           <UserX className="w-3 h-3" />
-                          Заблокирован
+                          {t('users.blocked')}
                         </>
                       )}
                     </Badge>
@@ -261,7 +274,7 @@ export function UsersTab() {
                         size="icon"
                         onClick={() => handleLimitsClick(user)}
                         className="h-7 w-7"
-                        title="Изменить лимиты"
+                        title={t('users.change_limits')}
                       >
                         <Settings2 className="w-3.5 h-3.5" />
                       </Button>
@@ -271,7 +284,7 @@ export function UsersTab() {
                         onClick={() => handleResetLimits(user)}
                         className="h-7 text-xs"
                       >
-                        Сбросить
+                        {t('users.reset_limits')}
                       </Button>
                       <Button
                         variant={!user.is_blocked ? "outline" : "success"}
@@ -279,14 +292,14 @@ export function UsersTab() {
                         onClick={() => toggleUserStatus(user)}
                         className="h-7 text-xs"
                       >
-                        {!user.is_blocked ? "Блок" : "Разблок"}
+                        {!user.is_blocked ? t('users.block') : t('users.unblock')}
                       </Button>
                       <Button
                         variant="destructive"
                         size="icon"
                         onClick={() => handleDeleteClick(user)}
                         className="h-7 w-7"
-                        title="Удалить"
+                        title={t('users.delete')}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -301,17 +314,17 @@ export function UsersTab() {
 
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-muted-foreground">
-            Страница {page} из {totalPages}
+            {t('common.page')} {page} {t('common.of')} {totalPages}
           </p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-              ← Назад
+              {t('common.back')}
             </Button>
             <div className="px-3 py-1 bg-primary text-primary-foreground rounded-md text-sm font-medium">
               {page}
             </div>
             <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-              Вперед →
+              {t('common.forward')}
             </Button>
           </div>
         </div>
@@ -321,20 +334,19 @@ export function UsersTab() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Удалить пользователя?</DialogTitle>
+            <DialogTitle>{t('users.delete_confirm')}</DialogTitle>
             <DialogDescription>
-              Вы уверены, что хотите удалить пользователя{" "}
-              <strong>{userToDelete?.telegram_username ? `@${userToDelete.telegram_username}` : userToDelete?.telegram_id}</strong>?
+              <strong>{userToDelete?.telegram_username ? `@${userToDelete.telegram_username}` : userToDelete?.telegram_id}</strong>
               <br />
-              Все его объявления и заявки будут удалены. Это действие нельзя отменить.
+              {t('users.delete_warning')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Удалить
+              {t('users.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -344,33 +356,31 @@ export function UsersTab() {
       <Dialog open={limitsDialogOpen} onOpenChange={setLimitsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Изменить лимиты</DialogTitle>
+            <DialogTitle>{t('users.change_limits')}</DialogTitle>
             <DialogDescription>
-              Пользователь:{" "}
               <strong>{userToEditLimits?.telegram_username ? `@${userToEditLimits.telegram_username}` : userToEditLimits?.telegram_id}</strong>
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Лимит объявлений (в месяц)</label>
+              <label className="text-sm font-medium">{t('limits.listings_limit')} ({t('limits.per_month')})</label>
               <Select value={listingsLimit} onValueChange={setListingsLimit}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите лимит" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">По умолчанию</SelectItem>
-                  <SelectItem value="unlimited">Безлимит</SelectItem>
+                  <SelectItem value="default">{t('limits.default')}</SelectItem>
+                  <SelectItem value="unlimited">{t('limits.unlimited')}</SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="4">4</SelectItem>
                   <SelectItem value="6">6</SelectItem>
-                  <SelectItem value="custom">Своё значение</SelectItem>
+                  <SelectItem value="custom">{t('limits.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {listingsLimit === "custom" && (
                 <Input
                   type="number"
-                  placeholder="Введите число"
                   value={customListings}
                   onChange={(e) => setCustomListings(e.target.value)}
                   min={1}
@@ -379,24 +389,23 @@ export function UsersTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Лимит заявок (в месяц)</label>
+              <label className="text-sm font-medium">{t('limits.requests_limit')} ({t('limits.per_month')})</label>
               <Select value={requirementsLimit} onValueChange={setRequirementsLimit}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите лимит" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">По умолчанию</SelectItem>
-                  <SelectItem value="unlimited">Безлимит</SelectItem>
+                  <SelectItem value="default">{t('limits.default')}</SelectItem>
+                  <SelectItem value="unlimited">{t('limits.unlimited')}</SelectItem>
                   <SelectItem value="2">2</SelectItem>
                   <SelectItem value="4">4</SelectItem>
                   <SelectItem value="6">6</SelectItem>
-                  <SelectItem value="custom">Своё значение</SelectItem>
+                  <SelectItem value="custom">{t('limits.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {requirementsLimit === "custom" && (
                 <Input
                   type="number"
-                  placeholder="Введите число"
                   value={customRequirements}
                   onChange={(e) => setCustomRequirements(e.target.value)}
                   min={1}
@@ -407,10 +416,10 @@ export function UsersTab() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setLimitsDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleLimitsSave}>
-              Сохранить
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -420,18 +429,16 @@ export function UsersTab() {
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Заблокировать пользователя</DialogTitle>
+            <DialogTitle>{t('users.block_user')}</DialogTitle>
             <DialogDescription>
-              Пользователь:{" "}
               <strong>{userToBlock?.telegram_username ? `@${userToBlock.telegram_username}` : userToBlock?.telegram_id}</strong>
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Причина блокировки (необязательно)</label>
+              <label className="text-sm font-medium">{t('users.block_reason')}</label>
               <Input
-                placeholder="Введите причину..."
                 value={blockReason}
                 onChange={(e) => setBlockReason(e.target.value)}
               />
@@ -440,13 +447,13 @@ export function UsersTab() {
 
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button variant="secondary" onClick={() => handleBlockConfirm("")}>
-              Пропустить
+              {t('users.skip')}
             </Button>
             <Button variant="destructive" onClick={() => handleBlockConfirm(blockReason)}>
-              Заблокировать
+              {t('users.block')}
             </Button>
           </DialogFooter>
         </DialogContent>

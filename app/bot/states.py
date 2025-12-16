@@ -34,6 +34,9 @@ class RequirementStates(StatesGroup):
     category = State()
     location_type = State()
     location_select = State()
+    district_select = State()  # Район для Баку
+    metro_select = State()  # Метро для Баку
+    landmark_input = State()  # Ориентир для Баку
     location_gps = State()
     price_range = State()
     price_min = State()
@@ -134,6 +137,7 @@ class AutoListingStates(StatesGroup):
 class AutoRequirementStates(StatesGroup):
     """States for creating auto requirement (buyer search)."""
     brands = State()
+    models = State()
     year_range = State()
     price_range = State()
     mileage_max = State()
@@ -156,3 +160,20 @@ class BotChatStates(StatesGroup):
     """States for in-bot chat between buyer and seller."""
     active_chat = State()
     writing_reply = State()
+
+
+class AutoRequirementEditStates(StatesGroup):
+    """States for editing auto requirement."""
+    select_field = State()
+    edit_brands = State()
+    edit_year = State()
+    edit_price = State()
+    edit_mileage = State()
+
+
+class AutoListingEditStates(StatesGroup):
+    """States for editing auto listing."""
+    select_field = State()
+    edit_price = State()
+    edit_mileage = State()
+    edit_description = State()

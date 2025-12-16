@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = '20251215_000001'
-down_revision: Union[str, None] = '20251214_231000_add_global_settings_table'
+down_revision: Union[str, None] = 'add_global_settings'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

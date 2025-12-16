@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getUsers, updateUserSubscription, resetUserLimits, User as ApiUser } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 
 const subscriptionConfig: Record<string, { icon: typeof User; color: string; bg: string; label: string }> = {
   free: { icon: User, color: "text-muted-foreground", bg: "bg-muted", label: "Free" },
@@ -29,6 +30,7 @@ export function SubscriptionsTab() {
   const [newSubscription, setNewSubscription] = useState("free");
   const [days, setDays] = useState("30");
   const { toast } = useToast();
+  const { t } = useI18n();
 
   useEffect(() => {
     loadUsers();
@@ -59,7 +61,7 @@ export function SubscriptionsTab() {
     if (!selectedUser) return;
     const result = await updateUserSubscription(selectedUser.id, newSubscription, parseInt(days));
     if (result) {
-      toast({ title: "Подписка обновлена" });
+      toast({ title: t('subs.subscription_updated') });
       loadUsers();
       setSelectedUser(null);
     }
@@ -69,7 +71,7 @@ export function SubscriptionsTab() {
     if (!selectedUser) return;
     const result = await resetUserLimits(selectedUser.id);
     if (result) {
-      toast({ title: "Лимиты сброшены" });
+      toast({ title: t('subs.limits_reset') });
       loadUsers();
     }
   };
@@ -95,14 +97,14 @@ export function SubscriptionsTab() {
       <div className="glass-card p-6 animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Управление подписками</h2>
-            <p className="text-sm text-muted-foreground mt-1">Изменение подписок и лимитов пользователей</p>
+            <h2 className="text-xl font-bold text-foreground">{t('subs.title')}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{t('subs.subtitle')}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Telegram ID или username..."
+                placeholder={t('users.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-72 pl-10"
@@ -110,11 +112,11 @@ export function SubscriptionsTab() {
               />
             </div>
             <Button variant="default" onClick={handleSearch}>
-              Найти
+              {t('common.find')}
             </Button>
             <Button variant="outline" onClick={loadUsers}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Обновить
+              {t('common.refresh')}
             </Button>
           </div>
         </div>
@@ -143,7 +145,7 @@ export function SubscriptionsTab() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Истекает</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('subs.expires')}</p>
                 <p className="font-semibold">
                   {selectedUser.subscription_expires_at 
                     ? new Date(selectedUser.subscription_expires_at).toLocaleDateString("ru-RU")
@@ -151,16 +153,16 @@ export function SubscriptionsTab() {
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Объявлений</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('users.listings')}</p>
                 <p className="font-semibold">{selectedUser.listing_count || 0}</p>
               </div>
               <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Заявок</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('users.requests')}</p>
                 <p className="font-semibold">{selectedUser.requirement_count || 0}</p>
               </div>
               <div className="p-4 rounded-lg bg-card border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Статус</p>
-                <p className="font-semibold">{selectedUser.is_blocked ? "Заблокирован" : "Активен"}</p>
+                <p className="text-xs text-muted-foreground mb-1">{t('subs.status')}</p>
+                <p className="font-semibold">{selectedUser.is_blocked ? t('users.blocked') : t('users.active')}</p>
               </div>
             </div>
 
@@ -197,15 +199,15 @@ export function SubscriptionsTab() {
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
                 className="w-24"
-                placeholder="Дни"
+                placeholder={t('common.days')}
               />
               <Button variant="default" onClick={handleSaveSubscription}>
                 <Save className="w-4 h-4 mr-2" />
-                Сохранить
+                {t('common.save')}
               </Button>
               <Button variant="outline" onClick={handleResetLimits}>
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Сбросить лимиты
+                {t('common.reset')}
               </Button>
             </div>
           </div>
@@ -215,13 +217,13 @@ export function SubscriptionsTab() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Telegram ID</th>
-                <th>Username</th>
-                <th>Подписка</th>
-                <th>Истекает</th>
-                <th>Объявл.</th>
-                <th>Заявки</th>
-                <th className="text-center">Действия</th>
+                <th>{t('users.telegram_id')}</th>
+                <th>{t('users.username')}</th>
+                <th>{t('users.subscription')}</th>
+                <th>{t('subs.expires')}</th>
+                <th>{t('users.listings')}</th>
+                <th>{t('users.requests')}</th>
+                <th className="text-center">{t('users.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -270,7 +272,7 @@ export function SubscriptionsTab() {
                       className="h-8"
                     >
                       <Edit className="w-4 h-4 mr-1" />
-                      Изменить
+                      {t('common.edit')}
                     </Button>
                   </td>
                 </tr>
@@ -281,7 +283,7 @@ export function SubscriptionsTab() {
 
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-muted-foreground">
-            Показано {filteredUsers.length} из {users.length}
+            {t('common.shown')} {filteredUsers.length} {t('common.of')} {users.length}
           </p>
         </div>
       </div>

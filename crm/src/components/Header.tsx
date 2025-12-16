@@ -1,20 +1,36 @@
-import { Home, LogOut } from "lucide-react";
+import { Home, LogOut, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { clearToken } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 interface HeaderProps {
   onLogout?: () => void;
 }
 
+const languages = [
+  { code: 'az' as const, name: '🇦🇿 Azərbaycan' },
+  { code: 'ru' as const, name: '🇷🇺 Русский' },
+  { code: 'en' as const, name: '🇬🇧 English' },
+];
+
 export function Header({ onLogout }: HeaderProps) {
   const navigate = useNavigate();
+  const { language, setLanguage, t } = useI18n();
 
   const handleLogout = () => {
     clearToken();
     onLogout?.();
     navigate("/login");
   };
+
+  const currentLang = languages.find(l => l.code === language);
 
   return (
     <header className="bg-header text-header-foreground border-b border-border/10">
@@ -30,6 +46,29 @@ export function Header({ onLogout }: HeaderProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-header-foreground/70 hover:text-header-foreground hover:bg-header-foreground/10"
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  {currentLang?.name.split(' ')[0]}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {languages.map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => setLanguage(lang.code)}
+                    className={language === lang.code ? 'bg-accent' : ''}
+                  >
+                    {lang.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -37,7 +76,7 @@ export function Header({ onLogout }: HeaderProps) {
               className="text-header-foreground/70 hover:text-header-foreground hover:bg-header-foreground/10"
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Выйти
+              {t('header.logout')}
             </Button>
           </div>
         </div>

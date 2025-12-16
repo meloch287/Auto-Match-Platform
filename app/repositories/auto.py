@@ -1,5 +1,6 @@
 """Repository for auto marketplace operations."""
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, Sequence
 
@@ -65,6 +66,26 @@ class AutoListingRepository(BaseRepository[AutoListing]):
         )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
+
+    async def count_by_user_this_month(self, user_id: uuid.UUID) -> int:
+        """Count auto listings created by user this month."""
+        now = datetime.now(timezone.utc)
+        month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+
+        query = (
+            select(func.count())
+            .select_from(AutoListing)
+            .where(
+                and_(
+                    AutoListing.user_id == user_id,
+                    AutoListing.created_at >= month_start,
+                    AutoListing.status != AutoStatusEnum.DELETED,
+                )
+            )
+        )
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
 
     async def find_matches_for_requirement(
         self,
@@ -158,6 +179,26 @@ class AutoRequirementRepository(BaseRepository[AutoRequirement]):
         )
         result = await self.session.execute(query)
         return result.scalars().all()
+
+    async def count_by_user_this_month(self, user_id: uuid.UUID) -> int:
+        """Count auto requirements created by user this month."""
+        now = datetime.now(timezone.utc)
+        month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+
+        query = (
+            select(func.count())
+            .select_from(AutoRequirement)
+            .where(
+                and_(
+                    AutoRequirement.user_id == user_id,
+                    AutoRequirement.created_at >= month_start,
+                    AutoRequirement.status != "deleted",
+                )
+            )
+        )
+
+        result = await self.session.execute(query)
+        return result.scalar() or 0
 
 
 class AutoMatchRepository(BaseRepository[AutoMatch]):

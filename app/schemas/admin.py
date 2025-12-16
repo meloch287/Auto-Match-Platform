@@ -137,6 +137,23 @@ class ChatMetrics(BaseSchema):
     messages_today: int = 0
     contact_reveals: int = 0
 
+class AutoListingMetrics(BaseSchema):
+    """Auto listing statistics."""
+    total_listings: int = 0
+    active_listings: int = 0
+    pending_moderation: int = 0
+    sale_listings: int = 0
+    rent_listings: int = 0
+
+
+class AutoRequirementMetrics(BaseSchema):
+    """Auto requirement statistics."""
+    total_requirements: int = 0
+    active_requirements: int = 0
+    sale_requirements: int = 0
+    rent_requirements: int = 0
+
+
 class AdminStatsResponse(BaseSchema):
 
     
@@ -145,6 +162,8 @@ class AdminStatsResponse(BaseSchema):
     requirements: RequirementMetrics
     matches: MatchMetrics
     chats: ChatMetrics
+    auto_listings: AutoListingMetrics | None = None
+    auto_requirements: AutoRequirementMetrics | None = None
     generated_at: datetime
 
 class ReportedChatResponse(BaseSchema):

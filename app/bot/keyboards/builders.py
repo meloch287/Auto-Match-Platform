@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional
+﻿from typing import Any, Callable, Optional
 
 from aiogram.types import (
     InlineKeyboardButton,
@@ -21,6 +21,105 @@ from app.bot.keyboards.callbacks import (
 )
 
 Translator = Callable[[str], str]
+
+# Azerbaijan cities for real estate (keys for storage)
+AZ_CITIES_RE = [
+    "Bakı", "Gəncə", "Sumqayıt", "Mingəçevir", "Şirvan", "Naxçıvan", "Şəki", "Lənkəran",
+    "Yevlax", "Xankəndi", "Quba", "Qusar", "Şamaxı", "Qəbələ", "Zaqatala", "Balakən",
+    "Ağdam", "Ağdaş", "Ağcabədi", "Ağstafa", "Ağsu", "Astara", "Babək", "Bərdə",
+    "Beyləqan", "Biləsuvar", "Cəbrayıl", "Cəlilabad", "Culfa", "Daşkəsən", "Füzuli",
+    "Gədəbəy", "Goranboy", "Göyçay", "Göygöl", "Hacıqabul", "İmişli", "İsmayıllı",
+    "Kəlbəcər", "Kürdəmir", "Laçın", "Lerik", "Masallı", "Neftçala", "Oğuz", "Ordubad",
+    "Qax", "Qazax", "Qobustan", "Qubadlı", "Saatlı", "Sabirabad", "Salyan", "Samux",
+    "Siyəzən", "Şabran", "Şahbuz", "Şəmkir", "Şərur", "Şuşa", "Tərtər", "Tovuz",
+    "Ucar", "Xaçmaz", "Xızı", "Xocavənd", "Yardımlı", "Zəngilan", "Zərdab",
+]
+
+# Russian translations for cities
+AZ_CITIES_RU = {
+    "Bakı": "Баку", "Gəncə": "Гянджа", "Sumqayıt": "Сумгаит", "Mingəçevir": "Мингечевир",
+    "Şirvan": "Ширван", "Naxçıvan": "Нахичевань", "Şəki": "Шеки", "Lənkəran": "Ленкорань",
+    "Yevlax": "Евлах", "Xankəndi": "Ханкенди", "Quba": "Губа", "Qusar": "Гусар",
+    "Şamaxı": "Шемаха", "Qəbələ": "Габала", "Zaqatala": "Загатала", "Balakən": "Балакен",
+    "Ağdam": "Агдам", "Ağdaş": "Агдаш", "Ağcabədi": "Агджабеди", "Ağstafa": "Агстафа",
+    "Ağsu": "Агсу", "Astara": "Астара", "Babək": "Бабек", "Bərdə": "Барда",
+    "Beyləqan": "Бейлаган", "Biləsuvar": "Билясувар", "Cəbrayıl": "Джебраил",
+    "Cəlilabad": "Джалилабад", "Culfa": "Джульфа", "Daşkəsən": "Дашкесан",
+    "Füzuli": "Физули", "Gədəbəy": "Гедабек", "Goranboy": "Горанбой", "Göyçay": "Геокчай",
+    "Göygöl": "Гёйгёль", "Hacıqabul": "Гаджигабул", "İmişli": "Имишли",
+    "İsmayıllı": "Исмаиллы", "Kəlbəcər": "Кельбаджар", "Kürdəmir": "Кюрдамир",
+    "Laçın": "Лачин", "Lerik": "Лерик", "Masallı": "Масаллы", "Neftçala": "Нефтечала",
+    "Oğuz": "Огуз", "Ordubad": "Ордубад", "Qax": "Гах", "Qazax": "Газах",
+    "Qobustan": "Гобустан", "Qubadlı": "Губадлы", "Saatlı": "Саатлы",
+    "Sabirabad": "Сабирабад", "Salyan": "Сальян", "Samux": "Самух", "Siyəzən": "Сиазань",
+    "Şabran": "Шабран", "Şahbuz": "Шахбуз", "Şəmkir": "Шамкир", "Şərur": "Шарур",
+    "Şuşa": "Шуша", "Tərtər": "Тертер", "Tovuz": "Товуз", "Ucar": "Уджар",
+    "Xaçmaz": "Хачмаз", "Xızı": "Хызы", "Xocavənd": "Ходжавенд", "Yardımlı": "Ярдымлы",
+    "Zəngilan": "Зангилан", "Zərdab": "Зардаб",
+}
+
+
+def get_city_name(city_key: str, lang: str = "az") -> str:
+    """Get city name in the specified language."""
+    if lang == "ru":
+        return AZ_CITIES_RU.get(city_key, city_key)
+    return city_key  # Default to Azerbaijani
+
+
+def build_city_keyboard_static(
+    _: Translator,
+    page: int = 0,
+    selected: Optional[list[str]] = None,
+    allow_multiple: bool = False,
+    lang: str = "az",
+) -> InlineKeyboardMarkup:
+    """Build city selection keyboard with pagination (static list)."""
+    builder = InlineKeyboardBuilder()
+    selected = selected or []
+    
+    # 12 cities per page
+    page_size = 12
+    start = page * page_size
+    end = start + page_size
+    cities_page = AZ_CITIES_RE[start:end]
+    
+    for city in cities_page:
+        # Get display name in user's language
+        display_name = get_city_name(city, lang)
+        # Show icon only for selected items
+        if selected and city in selected:
+            text = f"🔴 {display_name}"
+        else:
+            text = display_name
+        builder.button(text=text, callback_data=f"city_select:{city}")
+    
+    builder.adjust(2)
+    
+    # Pagination
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(("⬅️", f"city_page:{page-1}"))
+    if end < len(AZ_CITIES_RE):
+        nav_buttons.append(("➡️", f"city_page:{page+1}"))
+    
+    if nav_buttons:
+        builder.row()
+        for text, data in nav_buttons:
+            builder.button(text=text, callback_data=data)
+    
+    # Confirm button for multiple selection
+    if allow_multiple and selected:
+        builder.row()
+        builder.button(
+            text=f"✅ {_('buttons.confirm')} ({len(selected)})",
+            callback_data="city_confirm",
+        )
+    
+    builder.row()
+    builder.button(text=_("buttons.back"), callback_data=NavigationCallback(action="back").pack())
+    
+    return builder.as_markup()
+
 
 def build_language_keyboard() -> InlineKeyboardMarkup:
 
@@ -79,16 +178,30 @@ def build_market_type_keyboard(_: Translator) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def build_deal_type_keyboard(_: Translator, market_type: str = "auto") -> InlineKeyboardMarkup:
-    """Build deal type selection keyboard (Sale / Rent)."""
+def build_deal_type_keyboard(_: Translator, market_type: str = "auto", role: str = "seller") -> InlineKeyboardMarkup:
+    """Build deal type selection keyboard (Sale / Rent).
+    
+    Args:
+        _: Translator function
+        market_type: "auto" or "real_estate"
+        role: "buyer" or "seller" - determines text (Продажа vs Покупка)
+    """
     builder = InlineKeyboardBuilder()
     
+    # Use different translation keys based on role
+    if role == "buyer":
+        sale_key = "deal_type.sale_buyer"  # Покупка / Purchase / Alış
+        rent_key = "deal_type.rent_buyer"  # Аренда
+    else:
+        sale_key = "deal_type.sale"  # Продажа / Sale / Satış
+        rent_key = "deal_type.rent"  # Аренда
+    
     builder.button(
-        text=f"💰 {_('deal_type.sale')}",
+        text=f"💰 {_(sale_key)}",
         callback_data=f"deal:{market_type}:sale",
     )
     builder.button(
-        text=f"🔑 {_('deal_type.rent')}",
+        text=f"🔑 {_(rent_key)}",
         callback_data=f"deal:{market_type}:rent",
     )
     builder.button(
@@ -235,8 +348,9 @@ def build_district_keyboard(
         name = district.get(name_field, district.get("name_en", "Unknown"))
         district_id = str(district["id"])
         
-        if district_id in selected:
-            name = f"✅ {name}"
+        # Show icon only for selected items
+        if selected and district_id in selected:
+            name = f"🔴 {name}"
         
         builder.button(
             text=name,
@@ -359,18 +473,19 @@ def build_renovation_keyboard(
     selected = selected or []
     
     options = [
-        ("renovated", "✨", "form.renovation.renovated"),
-        ("not_renovated", "🔨", "form.renovation.not_renovated"),
-        ("partial", "🔧", "form.renovation.partial"),
+        ("renovated", "form.renovation.renovated"),
+        ("not_renovated", "form.renovation.not_renovated"),
+        ("partial", "form.renovation.partial"),
     ]
     
     if allow_multiple:
-        options.append(("any", "🔄", "form.renovation.any"))
+        options.append(("any", "form.renovation.any"))
     
-    for value, icon, key in options:
-        text = f"{icon} {_(key)}"
-        if value in selected:
-            text = f"✅ {text}"
+    for value, key in options:
+        text = _(key)
+        # Show icon only for selected items
+        if selected and value in selected:
+            text = f"🔴 {text}"
         
         builder.button(
             text=text,
@@ -400,18 +515,18 @@ def build_documents_keyboard(
     selected = selected or []
     
     options = [
-        ("extract", "📄", "form.documents.extract"),
-        ("title_deed", "📜", "form.documents.title_deed"),
-        ("technical", "📋", "form.documents.technical"),
+        ("extract", "form.documents.extract"),
+        ("technical", "form.documents.technical"),
     ]
     
     if allow_multiple:
-        options.append(("any", "🔄", "form.documents.any"))
+        options.append(("any", "form.documents.any"))
     
-    for value, icon, key in options:
-        text = f"{icon} {_(key)}"
-        if value in selected:
-            text = f"✅ {text}"
+    for value, key in options:
+        text = _(key)
+        # Show icon only for selected items
+        if selected and value in selected:
+            text = f"🔴 {text}"
         
         builder.button(
             text=text,
@@ -464,19 +579,20 @@ def build_heating_keyboard(
     selected = selected or []
     
     options = [
-        ("central", "🏢", "form.heating.central"),
-        ("individual", "🔥", "form.heating.individual"),
-        ("combi", "♨️", "form.heating.combi"),
-        ("none", "❄️", "form.heating.none"),
+        ("central", "form.heating.central"),
+        ("individual", "form.heating.individual"),
+        ("combi", "form.heating.combi"),
+        ("none", "form.heating.none"),
     ]
     
     if allow_multiple:
-        options.append(("any", "🔄", "form.heating.any"))
+        options.append(("any", "form.heating.any"))
     
-    for value, icon, key in options:
-        text = f"{icon} {_(key)}"
-        if value in selected:
-            text = f"✅ {text}"
+    for value, key in options:
+        text = _(key)
+        # Show icon only for selected items
+        if selected and value in selected:
+            text = f"🔴 {text}"
         
         builder.button(
             text=text,
@@ -506,18 +622,19 @@ def build_property_age_keyboard(
     selected = selected or []
     
     options = [
-        ("new", "🆕", "form.age.new"),
-        ("medium", "🏠", "form.age.medium"),
-        ("old", "🏚️", "form.age.old"),
+        ("new", "form.age.new"),
+        ("medium", "form.age.medium"),
+        ("old", "form.age.old"),
     ]
     
     if allow_multiple:
-        options.append(("any", "🔄", "form.age.any"))
+        options.append(("any", "form.age.any"))
     
-    for value, icon, key in options:
-        text = f"{icon} {_(key)}"
-        if value in selected:
-            text = f"✅ {text}"
+    for value, key in options:
+        text = _(key)
+        # Show icon only for selected items
+        if selected and value in selected:
+            text = f"🔴 {text}"
         
         builder.button(
             text=text,
@@ -547,24 +664,31 @@ def build_floor_preferences_keyboard(
     
     not_first = selected.get("not_first", False)
     not_last = selected.get("not_last", False)
+    has_selection = not_first or not_last
+    
+    # Show icon only for selected items
+    first_text = f"🔴 {_('form.floor.not_first')}" if not_first else _('form.floor.not_first')
+    last_text = f"🔴 {_('form.floor.not_last')}" if not_last else _('form.floor.not_last')
     
     builder.button(
-        text=f"{'✅' if not_first else '⬜'} {_('form.floor.not_first')}",
+        text=first_text,
         callback_data=FormFieldCallback(field="floor_pref", value="not_first"),
     )
     builder.button(
-        text=f"{'✅' if not_last else '⬜'} {_('form.floor.not_last')}",
+        text=last_text,
         callback_data=FormFieldCallback(field="floor_pref", value="not_last"),
     )
     
     builder.adjust(1)
     
-    builder.row(
-        InlineKeyboardButton(
-            text=f"✅ {_('buttons.confirm')}",
-            callback_data=NavigationCallback(action="confirm").pack(),
+    # Show confirm only when something selected
+    if has_selection:
+        builder.row(
+            InlineKeyboardButton(
+                text=f"✅ {_('buttons.confirm')}",
+                callback_data=NavigationCallback(action="confirm").pack(),
+            )
         )
-    )
     
     _add_back_button(builder, _)
     return builder.as_markup()

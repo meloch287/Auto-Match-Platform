@@ -19,8 +19,10 @@
   },
   "deal_type": {
     "select": "Select deal type:",
-    "sale": "Buy/Sell",
-    "rent": "Rent"
+    "sale": "Sale",
+    "sale_buyer": "Purchase",
+    "rent": "Rent",
+    "rent_buyer": "Rent"
   },
   "categories": {
     "select": "Select property category:",
@@ -35,7 +37,7 @@
   },
   "location": {
     "select_type": "Select location method:",
-    "city_district": "City/District",
+    "city_district": "City",
     "metro": "Metro Station",
     "gps": "GPS Coordinates",
     "select_city": "Select city:",
@@ -43,9 +45,14 @@
     "select_metro": "Select metro station:",
     "share_location": "📍 Share your location",
     "location_received": "✅ Location received",
-    "select_multiple": "You can select multiple districts (up to 5)",
-    "max_5": "Maximum 5 districts!",
-    "select_at_least_one": "Select at least one district!"
+    "select_multiple": "You can select multiple cities (up to 5)",
+    "max_5": "Maximum 5 cities!",
+    "select_at_least_one": "Select at least one city!",
+    "select_location_type": "Specify location:",
+    "district": "District",
+    "landmark": "Landmark",
+    "enter_landmark": "Enter landmark (e.g.: 28 Mall, Ganjlik Mall):",
+    "skip_detail": "Skip (all Baku)"
   },
   "metro": {
     "select_line": "Select metro line:",
@@ -54,7 +61,10 @@
     "purple_line": "Purple Line"
   },
   "form": {
+    "category": "Category",
+    "city": "City",
     "price": {
+      "label": "Price",
       "enter": "Enter price in AZN (Azerbaijani Manat):",
       "enter_min": "💰 Enter minimum price (AZN):",
       "enter_max": "💰 Enter maximum price (AZN):",
@@ -64,16 +74,19 @@
       "invalid_range": "❌ Invalid format. Enter range with dash: min - max"
     },
     "payment": {
+      "label": "Payment",
       "select": "Select payment type:",
       "cash": "Cash",
       "credit": "Credit",
       "both": "Both"
     },
     "down_payment": {
+      "label": "Down payment",
       "enter": "Enter down payment amount (AZN):",
       "skip": "You can skip this field"
     },
     "rooms": {
+      "label": "Rooms",
       "enter": "Enter number of rooms:",
       "enter_min": "Enter minimum number of rooms:",
       "enter_max": "Enter maximum number of rooms:",
@@ -82,6 +95,7 @@
       "invalid_range": "❌ Invalid format. Enter range with dash: min - max"
     },
     "area": {
+      "label": "Area",
       "enter": "Enter area (m²):",
       "enter_sot": "Enter area (sotka):",
       "enter_min": "Enter minimum area:",
@@ -91,6 +105,7 @@
       "invalid_range": "❌ Invalid format. Enter range with dash: min - max"
     },
     "floor": {
+      "label": "Floor",
       "enter": "Enter floor:",
       "enter_min": "Enter minimum floor:",
       "enter_max": "Enter maximum floor:",
@@ -167,6 +182,12 @@
     "deleted": "✅ Your listing has been deleted.",
     "deactivated": "✅ Your listing has been deactivated.",
     "renewed": "✅ Your listing has been renewed.",
+    "price": "Price",
+    "rooms": "Rooms",
+    "area": "Area",
+    "floor": "Floor",
+    "vip": "TOP",
+    "your_listing": "Your listing",
     "status": {
       "pending": "⏳ Pending Moderation",
       "active": "✅ Active",
@@ -178,6 +199,7 @@
   },
   "requirement": {
     "created": "✅ Your requirement has been created!\n\nAuto-Match is searching for matching listings. We'll notify you of matches.",
+    "created_no_matches": "✅ Your requirement has been created!\n\nNo matching listings found yet. We'll notify you when matches appear.",
     "updated": "✅ Your requirement has been updated. Searching for new matches...",
     "deleted": "✅ Your requirement has been deleted.",
     "deactivated": "✅ Your requirement has been deactivated.",
@@ -191,7 +213,10 @@
     "contact": "Contact",
     "reject": "Reject",
     "rejected": "✅ Match rejected.",
-    "no_matches": "No matches found yet."
+    "no_matches": "No matches found yet.",
+    "score": "Match",
+    "title": "Match",
+    "listing": "Listing"
   },
   "chat": {
     "started": "💬 Anonymous chat started.\n\nYou are: {alias}",
@@ -202,7 +227,18 @@
     "reveal_confirmed": "✅ Contact information shared:\n\n{contact}",
     "reveal_pending": "⏳ Waiting for the other party's consent...",
     "reported": "✅ Your report has been submitted.",
-    "closed": "✅ Chat closed."
+    "closed": "✅ Chat closed.",
+    "buyer": "Buyer",
+    "seller": "Seller",
+    "contact_request": "Someone wants to contact you!",
+    "from": "From",
+    "request_sent": "✅ Contact request sent! Waiting for confirmation.",
+    "request_pending": "⏳ Request already sent. Waiting for confirmation.",
+    "already_exists": "💬 Chat already exists! Use /my_chats",
+    "request_accepted": "Contact request accepted! Chat created.",
+    "your_request_accepted": "Your contact request was accepted! Chat created.",
+    "request_declined": "❌ Contact request declined.",
+    "use_my_chats": "Use /my_chats to go to the chat."
   },
   "menu": {
     "new_listing": "New Listing",
@@ -217,6 +253,7 @@
   "buttons": {
     "back": "⬅️ Back",
     "back_simple": "Back",
+    "next": "Next",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "skip": "Skip",
@@ -228,7 +265,10 @@
     "renew": "Renew",
     "start_over": "🔄 Restart",
     "change_language": "🌐 Language",
-    "cancelled": "❌ Operation cancelled."
+    "cancelled": "❌ Operation cancelled.",
+    "accept": "Accept",
+    "decline": "Decline",
+    "contact": "Contact"
   },
   "errors": {
     "general": "❌ An error occurred. Please try again.",
@@ -285,6 +325,10 @@
   "profile": {
     "title": "👤 Profile"
   },
+  "delete": {
+    "confirm_listing": "🗑️ Are you sure you want to delete this listing?\n\nThis action cannot be undone.",
+    "confirm_requirement": "🗑️ Are you sure you want to delete this request?\n\nThis action cannot be undone."
+  },
   "vip": {
     "title": "⭐ VIP Upgrade",
     "select_listing": "Select a listing to upgrade to VIP:",
@@ -337,6 +381,9 @@
     "enter_price_range": "💰 Enter price range (min-max), e.g.: 50000-100000",
     "enter_rooms_range": "🏠 Enter rooms range (min-max), e.g.: 2-4",
     "enter_area_range": "📐 Enter area range (min-max), e.g.: 50-100",
+    "enter_year_range": "📅 Enter year range (min-max), e.g.: 2015-2023",
+    "enter_mileage_max": "🛣️ Enter maximum mileage (km):",
+    "enter_mileage": "🛣️ Enter mileage (km):",
     "invalid_range": "❌ Invalid format. Enter range with dash, e.g.: 100-200",
     "saved": "✅ Changes saved!",
     "current": "Current value",
@@ -349,12 +396,15 @@
     "brand": "Brand",
     "model": "Model",
     "year": "Year",
-    "mileage": "Mileage (km)",
+    "mileage": "Mileage",
+    "mileage_up_to": "up to {value} km",
     "price": "Price (AZN)",
-    "enter_brand": "🚗 Enter car brand:",
+    "enter_brand": "🚗 Select car brand:",
     "enter_model": "📝 Enter model:",
     "enter_year": "📅 Enter year (e.g.: 2020):",
     "enter_year_range": "📅 Enter year range (min-max), e.g.: 2015-2023",
+    "enter_year_range_dynamic": "Enter year range (min-max), e.g.: {min}-{max}",
+    "year_out_of_range": "❌ Only {min}-{max} year cars available. Enter a year in this range.",
     "enter_mileage": "🛣️ Enter mileage in km:",
     "enter_mileage_range": "🛣️ Enter mileage range (min-max), e.g.: 0-100000",
     "enter_price": "💰 Enter price (AZN):",
@@ -376,7 +426,9 @@
     },
     "transmission": {
       "manual": "Manual",
-      "automatic": "Automatic"
+      "automatic": "Automatic",
+      "robot": "Robot",
+      "cvt": "CVT"
     },
     "body": {
       "sedan": "Sedan",
@@ -411,7 +463,9 @@
     "no_matches": "🔍 No matching listings found yet.",
     "matches_found": "🎯 Found matches for your request!",
     "listing_created": "✅ Your listing sent for moderation!",
-    "requirement_created": "✅ Your request created! We'll notify you about matches."
+    "requirement_created": "✅ Your request created! We'll notify you about matches.",
+    "invalid_mileage": "❌ Invalid mileage. Enter a number from 0 to 1,000,000.",
+    "invalid_year": "❌ Invalid year. Enter a year from 1950 to 2030."
   },
   "rental": {
     "title": "🏠 Property Rental",

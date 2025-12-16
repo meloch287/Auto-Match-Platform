@@ -300,7 +300,7 @@ async def subscription_confirm(
     user: Any,
     db_session: Optional[AsyncSession] = None,
 ) -> None:
-    """Handle subscription purchase confirmation - show payment pending stub."""
+    """Handle subscription purchase confirmation - create Payriff payment."""
     await callback.answer()
     
     plan_id = callback_data.plan_id
@@ -311,20 +311,84 @@ async def subscription_confirm(
         await state.clear()
         return
     
+    if not db_session:
+        await callback.message.edit_text(_("errors.general"))
+        await state.clear()
+        return
+    
     lang = user.language.value if user and hasattr(user, 'language') else "en"
     
-    # Show payment pending stub with back button
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    builder = InlineKeyboardBuilder()
-    builder.button(text=_('buttons.back_simple'), callback_data=SubscriptionCallback(action="back"))
+    # Create Payriff payment
+    from app.services.payriff import get_payriff_service
+    from app.models.payment import Payment, PaymentStatusEnum, PaymentTypeEnum
     
-    await callback.message.edit_text(
-        f"💳 {_('subscription.payment_pending')}\n\n"
-        f"📦 {_('subscription.plan')}: {plan.get_name(lang)}\n"
-        f"💰 {_('subscription.price')}: {plan.price} AZN\n\n"
-        f"ℹ️ {_('subscription.payment_instructions')}",
-        reply_markup=builder.as_markup(),
-    )
+    payriff = get_payriff_service()
+    
+    try:
+        order = await payriff.create_order(
+            amount=plan.price,
+            currency="AZN",
+            description=f"Subscription: {plan.name_en}",
+            language=lang.upper(),
+        )
+        
+        if order and order.payment_url:
+            # Save payment to database
+            payment = Payment(
+                user_id=user.id,
+                amount=plan.price,
+                currency="AZN",
+                payment_type=PaymentTypeEnum.SUBSCRIPTION,
+                plan_id=plan_id,
+                payriff_order_id=order.order_id,
+                payriff_session_id=order.session_id,
+                payment_url=order.payment_url,
+                status=PaymentStatusEnum.PENDING,
+            )
+            db_session.add(payment)
+            await db_session.commit()
+            
+            # Show payment link
+            from aiogram.utils.keyboard import InlineKeyboardBuilder
+            builder = InlineKeyboardBuilder()
+            builder.button(text="💳 Оплатить / Pay", url=order.payment_url)
+            builder.button(text=_('buttons.back_simple'), callback_data=SubscriptionCallback(action="back"))
+            builder.adjust(1)
+            
+            await callback.message.edit_text(
+                f"💳 {_('subscription.payment_pending')}\n\n"
+                f"📦 {_('subscription.plan')}: {plan.get_name(lang)}\n"
+                f"💰 {_('subscription.price')}: {plan.price} AZN\n\n"
+                f"👆 Нажмите кнопку для оплаты",
+                reply_markup=builder.as_markup(),
+            )
+        else:
+            # Fallback to manual payment
+            from aiogram.utils.keyboard import InlineKeyboardBuilder
+            builder = InlineKeyboardBuilder()
+            builder.button(text=_('buttons.back_simple'), callback_data=SubscriptionCallback(action="back"))
+            
+            await callback.message.edit_text(
+                f"💳 {_('subscription.payment_pending')}\n\n"
+                f"📦 {_('subscription.plan')}: {plan.get_name(lang)}\n"
+                f"💰 {_('subscription.price')}: {plan.price} AZN\n\n"
+                f"ℹ️ {_('subscription.payment_instructions')}",
+                reply_markup=builder.as_markup(),
+            )
+    except Exception as e:
+        logger.error(f"Payment creation error: {e}")
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        builder = InlineKeyboardBuilder()
+        builder.button(text=_('buttons.back_simple'), callback_data=SubscriptionCallback(action="back"))
+        
+        await callback.message.edit_text(
+            f"❌ Ошибка создания платежа. Попробуйте позже.\n\n"
+            f"ℹ️ {_('subscription.payment_instructions')}",
+            reply_markup=builder.as_markup(),
+        )
+    finally:
+        await payriff.close()
+    
     await state.clear()
 
 @router.callback_query(SubscriptionCallback.filter(F.action == "back"))
@@ -501,20 +565,76 @@ async def package_confirm_listings(
     user: Any,
     db_session: Optional[AsyncSession] = None,
 ) -> None:
-    """Confirm extra listings package purchase - show payment pending stub."""
+    """Confirm extra listings package purchase - create Payriff payment."""
     await callback.answer()
     
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    builder = InlineKeyboardBuilder()
-    builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+    if not db_session:
+        await callback.message.edit_text(_("errors.general"))
+        return
     
-    await callback.message.edit_text(
-        f"💳 {_('subscription.payment_pending')}\n\n"
-        f"📦 {_('subscription.extra_listings')}\n"
-        f"💰 9.99 AZN\n\n"
-        f"ℹ️ {_('subscription.payment_instructions')}",
-        reply_markup=builder.as_markup(),
-    )
+    from decimal import Decimal
+    from app.services.payriff import get_payriff_service
+    from app.models.payment import Payment, PaymentStatusEnum, PaymentTypeEnum
+    
+    lang = user.language.value if user and hasattr(user, 'language') else "en"
+    payriff = get_payriff_service()
+    
+    try:
+        order = await payriff.create_order(
+            amount=Decimal("9.99"),
+            currency="AZN",
+            description="Extra listings package (+5)",
+            language=lang.upper(),
+        )
+        
+        if order and order.payment_url:
+            payment = Payment(
+                user_id=user.id,
+                amount=Decimal("9.99"),
+                currency="AZN",
+                payment_type=PaymentTypeEnum.PACKAGE_LISTINGS,
+                payriff_order_id=order.order_id,
+                payriff_session_id=order.session_id,
+                payment_url=order.payment_url,
+                status=PaymentStatusEnum.PENDING,
+            )
+            db_session.add(payment)
+            await db_session.commit()
+            
+            from aiogram.utils.keyboard import InlineKeyboardBuilder
+            builder = InlineKeyboardBuilder()
+            builder.button(text="💳 Оплатить / Pay", url=order.payment_url)
+            builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+            builder.adjust(1)
+            
+            await callback.message.edit_text(
+                f"💳 {_('subscription.payment_pending')}\n\n"
+                f"📦 {_('subscription.extra_listings')}\n"
+                f"💰 9.99 AZN\n\n"
+                f"👆 Нажмите кнопку для оплаты",
+                reply_markup=builder.as_markup(),
+            )
+        else:
+            from aiogram.utils.keyboard import InlineKeyboardBuilder
+            builder = InlineKeyboardBuilder()
+            builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+            
+            await callback.message.edit_text(
+                f"💳 {_('subscription.payment_pending')}\n\n"
+                f"📦 {_('subscription.extra_listings')}\n"
+                f"💰 9.99 AZN\n\n"
+                f"ℹ️ {_('subscription.payment_instructions')}",
+                reply_markup=builder.as_markup(),
+            )
+    except Exception as e:
+        logger.error(f"Payment creation error: {e}")
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        builder = InlineKeyboardBuilder()
+        builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+        await callback.message.edit_text(_("errors.general"), reply_markup=builder.as_markup())
+    finally:
+        await payriff.close()
+    
     await state.clear()
 
 
@@ -526,18 +646,74 @@ async def package_confirm_requirements(
     user: Any,
     db_session: Optional[AsyncSession] = None,
 ) -> None:
-    """Confirm extra requirements package purchase - show payment pending stub."""
+    """Confirm extra requirements package purchase - create Payriff payment."""
     await callback.answer()
     
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    builder = InlineKeyboardBuilder()
-    builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+    if not db_session:
+        await callback.message.edit_text(_("errors.general"))
+        return
     
-    await callback.message.edit_text(
-        f"💳 {_('subscription.payment_pending')}\n\n"
-        f"📦 {_('subscription.extra_requirements')}\n"
-        f"💰 4.99 AZN\n\n"
-        f"ℹ️ {_('subscription.payment_instructions')}",
-        reply_markup=builder.as_markup(),
-    )
+    from decimal import Decimal
+    from app.services.payriff import get_payriff_service
+    from app.models.payment import Payment, PaymentStatusEnum, PaymentTypeEnum
+    
+    lang = user.language.value if user and hasattr(user, 'language') else "en"
+    payriff = get_payriff_service()
+    
+    try:
+        order = await payriff.create_order(
+            amount=Decimal("4.99"),
+            currency="AZN",
+            description="Extra requirements package (+10)",
+            language=lang.upper(),
+        )
+        
+        if order and order.payment_url:
+            payment = Payment(
+                user_id=user.id,
+                amount=Decimal("4.99"),
+                currency="AZN",
+                payment_type=PaymentTypeEnum.PACKAGE_REQUIREMENTS,
+                payriff_order_id=order.order_id,
+                payriff_session_id=order.session_id,
+                payment_url=order.payment_url,
+                status=PaymentStatusEnum.PENDING,
+            )
+            db_session.add(payment)
+            await db_session.commit()
+            
+            from aiogram.utils.keyboard import InlineKeyboardBuilder
+            builder = InlineKeyboardBuilder()
+            builder.button(text="💳 Оплатить / Pay", url=order.payment_url)
+            builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+            builder.adjust(1)
+            
+            await callback.message.edit_text(
+                f"💳 {_('subscription.payment_pending')}\n\n"
+                f"📦 {_('subscription.extra_requirements')}\n"
+                f"💰 4.99 AZN\n\n"
+                f"👆 Нажмите кнопку для оплаты",
+                reply_markup=builder.as_markup(),
+            )
+        else:
+            from aiogram.utils.keyboard import InlineKeyboardBuilder
+            builder = InlineKeyboardBuilder()
+            builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+            
+            await callback.message.edit_text(
+                f"💳 {_('subscription.payment_pending')}\n\n"
+                f"📦 {_('subscription.extra_requirements')}\n"
+                f"💰 4.99 AZN\n\n"
+                f"ℹ️ {_('subscription.payment_instructions')}",
+                reply_markup=builder.as_markup(),
+            )
+    except Exception as e:
+        logger.error(f"Payment creation error: {e}")
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        builder = InlineKeyboardBuilder()
+        builder.button(text=_('buttons.back_simple'), callback_data="subscription:show_packages")
+        await callback.message.edit_text(_("errors.general"), reply_markup=builder.as_markup())
+    finally:
+        await payriff.close()
+    
     await state.clear()

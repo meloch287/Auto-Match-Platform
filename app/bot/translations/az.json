@@ -19,8 +19,10 @@
   },
   "deal_type": {
     "select": "Əməliyyat növünü seçin:",
-    "sale": "Alqı-satqı",
-    "rent": "İcarə"
+    "sale": "Satış",
+    "sale_buyer": "Alış",
+    "rent": "İcarə",
+    "rent_buyer": "İcarə"
   },
   "categories": {
     "select": "Daşınmaz əmlak kateqoriyasını seçin:",
@@ -35,7 +37,7 @@
   },
   "location": {
     "select_type": "Məkan seçim üsulunu seçin:",
-    "city_district": "Şəhər/Rayon",
+    "city_district": "Şəhər",
     "metro": "Metro stansiyası",
     "gps": "GPS koordinatları",
     "select_city": "Şəhəri seçin:",
@@ -43,9 +45,14 @@
     "select_metro": "Metro stansiyasını seçin:",
     "share_location": "📍 Məkanınızı paylaşın",
     "location_received": "✅ Məkan qəbul edildi",
-    "select_multiple": "Bir neçə rayon seçə bilərsiniz (maksimum 5)",
-    "max_5": "Maksimum 5 rayon!",
-    "select_at_least_one": "Ən azı bir rayon seçin!"
+    "select_multiple": "Bir neçə şəhər seçə bilərsiniz (maksimum 5)",
+    "max_5": "Maksimum 5 şəhər!",
+    "select_at_least_one": "Ən azı bir şəhər seçin!",
+    "select_location_type": "Dəqiq məkan seçin:",
+    "district": "Rayon",
+    "landmark": "Orientir",
+    "enter_landmark": "Orientiri daxil edin (məs: 28 Mall, Gənclik Mall):",
+    "skip_detail": "Keç (bütün Bakı)"
   },
   "metro": {
     "select_line": "Metro xəttini seçin:",
@@ -54,7 +61,10 @@
     "purple_line": "Bənövşəyi xətt"
   },
   "form": {
+    "category": "Kateqoriya",
+    "city": "Şəhər",
     "price": {
+      "label": "Qiymət",
       "enter": "Qiyməti daxil edin (AZN):",
       "enter_min": "💰 Minimum qiyməti daxil edin (AZN):",
       "enter_max": "💰 Maksimum qiyməti daxil edin (AZN):",
@@ -64,16 +74,19 @@
       "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks"
     },
     "payment": {
+      "label": "Ödəniş",
       "select": "Ödəniş növünü seçin:",
       "cash": "Nağd",
       "credit": "Kredit",
       "both": "Hər ikisi"
     },
     "down_payment": {
+      "label": "İlkin ödəniş",
       "enter": "İlkin ödəniş məbləğini daxil edin (AZN):",
       "skip": "Bu sahəni keçə bilərsiniz"
     },
     "rooms": {
+      "label": "Otaq",
       "enter": "Otaq sayını daxil edin:",
       "enter_min": "Minimum otaq sayını daxil edin:",
       "enter_max": "Maksimum otaq sayını daxil edin:",
@@ -82,6 +95,7 @@
       "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks"
     },
     "area": {
+      "label": "Sahə",
       "enter": "Sahəni daxil edin (m²):",
       "enter_sot": "Sahəni daxil edin (sot):",
       "enter_min": "Minimum sahəni daxil edin:",
@@ -91,6 +105,7 @@
       "invalid_range": "❌ Yanlış format. Aralığı tire ilə daxil edin: min - maks"
     },
     "floor": {
+      "label": "Mərtəbə",
       "enter": "Mərtəbəni daxil edin:",
       "enter_min": "Minimum mərtəbəni daxil edin:",
       "enter_max": "Maksimum mərtəbəni daxil edin:",
@@ -167,6 +182,12 @@
     "deleted": "✅ Elanınız silindi.",
     "deactivated": "✅ Elanınız deaktiv edildi.",
     "renewed": "✅ Elanınız yeniləndi.",
+    "price": "Qiymət",
+    "rooms": "Otaq",
+    "area": "Sahə",
+    "floor": "Mərtəbə",
+    "vip": "TOP",
+    "your_listing": "Elanınız",
     "status": {
       "pending": "⏳ Moderasiya gözləyir",
       "active": "✅ Aktiv",
@@ -178,6 +199,7 @@
   },
   "requirement": {
     "created": "✅ Tələbiniz uğurla yaradıldı!\n\nAuto-Match uyğun elanları axtarır. Uyğunluqlar barədə sizi xəbərdar edəcəyik.",
+    "created_no_matches": "✅ Tələbiniz yaradıldı!\n\nHələlik uyğun elan tapılmadı. Uyğunluqlar tapıldıqda sizə xəbər verəcəyik.",
     "updated": "✅ Tələbiniz yeniləndi. Yeni uyğunluqlar axtarılır...",
     "deleted": "✅ Tələbiniz silindi.",
     "deactivated": "✅ Tələbiniz deaktiv edildi.",
@@ -191,7 +213,10 @@
     "contact": "Əlaqə",
     "reject": "Rədd et",
     "rejected": "✅ Uyğunluq rədd edildi.",
-    "no_matches": "Hələlik uyğunluq tapılmadı."
+    "no_matches": "Hələlik uyğunluq tapılmadı.",
+    "score": "Uyğunluq",
+    "title": "Uyğunluq",
+    "listing": "Elan"
   },
   "chat": {
     "started": "💬 Anonim söhbət başladı.\n\nSiz: {alias}",
@@ -202,7 +227,18 @@
     "reveal_confirmed": "✅ Əlaqə məlumatları paylaşıldı:\n\n{contact}",
     "reveal_pending": "⏳ Digər tərəfin razılığı gözlənilir...",
     "reported": "✅ Şikayətiniz qeydə alındı.",
-    "closed": "✅ Söhbət bağlandı."
+    "closed": "✅ Söhbət bağlandı.",
+    "buyer": "Alıcı",
+    "seller": "Satıcı",
+    "contact_request": "Sizinlə əlaqə saxlamaq istəyirlər!",
+    "from": "Kimdən",
+    "request_sent": "✅ Əlaqə sorğusu göndərildi! Təsdiq gözləyin.",
+    "request_pending": "⏳ Sorğu artıq göndərilib. Təsdiq gözləyin.",
+    "already_exists": "💬 Söhbət artıq yaradılıb! /my_chats istifadə edin",
+    "request_accepted": "Əlaqə sorğusu qəbul edildi! Söhbət yaradıldı.",
+    "your_request_accepted": "Əlaqə sorğunuz qəbul edildi! Söhbət yaradıldı.",
+    "request_declined": "❌ Əlaqə sorğusu rədd edildi.",
+    "use_my_chats": "Söhbətə keçmək üçün /my_chats istifadə edin."
   },
   "menu": {
     "new_listing": "Yeni elan",
@@ -217,6 +253,7 @@
   "buttons": {
     "back": "⬅️ Geri",
     "back_simple": "Geri",
+    "next": "İrəli",
     "cancel": "Ləğv et",
     "confirm": "Təsdiqlə",
     "skip": "Keç",
@@ -228,7 +265,10 @@
     "renew": "Yenilə",
     "start_over": "🔄 Yenidən",
     "change_language": "🌐 Dil",
-    "cancelled": "❌ Əməliyyat ləğv edildi."
+    "cancelled": "❌ Əməliyyat ləğv edildi.",
+    "accept": "Qəbul et",
+    "decline": "Rədd et",
+    "contact": "Əlaqə"
   },
   "errors": {
     "general": "❌ Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.",
@@ -285,6 +325,10 @@
   "profile": {
     "title": "👤 Şəxsi kabinet"
   },
+  "delete": {
+    "confirm_listing": "🗑️ Bu elanı silmək istədiyinizə əminsiniz?\n\nBu əməliyyatı geri qaytarmaq mümkün deyil.",
+    "confirm_requirement": "🗑️ Bu sorğunu silmək istədiyinizə əminsiniz?\n\nBu əməliyyatı geri qaytarmaq mümkün deyil."
+  },
   "vip": {
     "title": "⭐ VIP Status",
     "select_listing": "VIP statusu üçün elan seçin:",
@@ -337,6 +381,9 @@
     "enter_price_range": "💰 Qiymət aralığını daxil edin (min-maks), məs: 50000-100000",
     "enter_rooms_range": "🏠 Otaq aralığını daxil edin (min-maks), məs: 2-4",
     "enter_area_range": "📐 Sahə aralığını daxil edin (min-maks), məs: 50-100",
+    "enter_year_range": "📅 İl aralığını daxil edin (min-maks), məs: 2015-2023",
+    "enter_mileage_max": "🛣️ Maksimum yürüşü daxil edin (km):",
+    "enter_mileage": "🛣️ Yürüşü daxil edin (km):",
     "invalid_range": "❌ Yanlış format. Tire ilə aralıq daxil edin, məs: 100-200",
     "saved": "✅ Dəyişikliklər yadda saxlanıldı!",
     "current": "Cari dəyər",
@@ -349,12 +396,15 @@
     "brand": "Marka",
     "model": "Model",
     "year": "Buraxılış ili",
-    "mileage": "Yürüş (km)",
+    "mileage": "Yürüş",
+    "mileage_up_to": "{value} km - dək",
     "price": "Qiymət (AZN)",
-    "enter_brand": "🚗 Avtomobilin markasını daxil edin:",
+    "enter_brand": "🚗 Avtomobilin markasını seçin:",
     "enter_model": "📝 Modeli daxil edin:",
     "enter_year": "📅 Buraxılış ilini daxil edin (məs: 2020):",
     "enter_year_range": "📅 İl aralığını daxil edin (min-maks), məs: 2015-2023",
+    "enter_year_range_dynamic": "İl aralığını daxil edin (min-maks), məs: {min}-{max}",
+    "year_out_of_range": "❌ Yalnız {min}-{max} illik avtomobillər mövcuddur. Bu aralıqda il daxil edin.",
     "enter_mileage": "🛣️ Yürüşü km ilə daxil edin:",
     "enter_mileage_range": "🛣️ Yürüş aralığını daxil edin (min-maks), məs: 0-100000",
     "enter_price": "💰 Qiyməti daxil edin (AZN):",
@@ -376,7 +426,9 @@
     },
     "transmission": {
       "manual": "Mexanika",
-      "automatic": "Avtomat"
+      "automatic": "Avtomat",
+      "robot": "Robot",
+      "cvt": "Variator"
     },
     "body": {
       "sedan": "Sedan",
@@ -411,7 +463,9 @@
     "no_matches": "🔍 Hələ uyğun elan tapılmadı.",
     "matches_found": "🎯 Sorğunuza uyğun elanlar tapıldı!",
     "listing_created": "✅ Elanınız moderasiyaya göndərildi!",
-    "requirement_created": "✅ Sorğunuz yaradıldı! Uyğunluqlar barədə sizə məlumat verəcəyik."
+    "requirement_created": "✅ Sorğunuz yaradıldı! Uyğunluqlar barədə sizə məlumat verəcəyik.",
+    "invalid_mileage": "❌ Yanlış yürüş. 0-dan 1 000 000-a qədər rəqəm daxil edin.",
+    "invalid_year": "❌ Yanlış il. 1950-dən 2030-a qədər il daxil edin."
   },
   "rental": {
     "title": "🏠 Daşınmaz əmlak icarəsi",

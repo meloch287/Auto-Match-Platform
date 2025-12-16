@@ -16,8 +16,8 @@ BOT_COMMANDS = [
     BotCommand(command="my_requests", description="My requests / Мои заявки / Tələblərim"),
     BotCommand(command="my_listings", description="My listings / Мои объявления / Elanlarım"),
     BotCommand(command="my_chats", description="My chats / Мои чаты / Söhbətlərim"),
+    BotCommand(command="matches", description="Matches / Совпадения / Uyğunluqlar"),
     BotCommand(command="subscription", description="Subscription / Подписка / Abunəlik"),
-    BotCommand(command="settings", description="Settings / Настройки / Parametrlər"),
     BotCommand(command="cancel", description="Cancel / Отмена / Ləğv et"),
 ]
 

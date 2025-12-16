@@ -75,3 +75,15 @@ class SubscriptionCallback(CallbackData, prefix="sub"):
     
     action: str
     plan_id: str = ""
+
+
+class AutoRequirementCallback(CallbackData, prefix="auto_req"):
+    """Callback for auto requirement actions."""
+    action: str
+    id: str
+
+
+class AutoListingCallback(CallbackData, prefix="auto_lst"):
+    """Callback for auto listing actions."""
+    action: str
+    id: str

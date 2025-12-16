@@ -20,6 +20,7 @@ from app.bot.states import (
     AutoListingStates,
     AutoRequirementStates,
 )
+from app.bot.handlers.auto import build_brand_keyboard
 
 router = Router(name="onboarding")
 
@@ -150,13 +151,16 @@ async def process_market_type_selection(
         await state.set_state(OnboardingStates.role_select)
         return
     
+    data = await state.get_data()
+    role = data.get("current_role", "buyer")
+    
     if market_type == "auto":
         # Show deal type selection for auto
         await callback.answer()
         await state.update_data(market_type="auto")
         await callback.message.edit_text(
             _("deal_type.select"),
-            reply_markup=build_deal_type_keyboard(_),
+            reply_markup=build_deal_type_keyboard(_, "auto", role),
         )
         await state.set_state(OnboardingStates.market_type_select)
         return
@@ -166,7 +170,7 @@ async def process_market_type_selection(
     await state.update_data(market_type="real_estate")
     await callback.message.edit_text(
         _("deal_type.select"),
-        reply_markup=build_deal_type_keyboard(_, "real_estate"),
+        reply_markup=build_deal_type_keyboard(_, "real_estate", role),
     )
 
 @router.callback_query(F.data.startswith("deal:"))
@@ -218,6 +222,7 @@ async def process_deal_type_selection(
             await state.update_data(flow="auto_requirement")
             await callback.message.edit_text(
                 _("auto.enter_brand"),
+                reply_markup=build_brand_keyboard(_),
             )
             await state.set_state(AutoRequirementStates.brands)
         else:
@@ -233,6 +238,7 @@ async def process_deal_type_selection(
             await state.update_data(flow="auto_listing")
             await callback.message.edit_text(
                 _("auto.enter_brand"),
+                reply_markup=build_brand_keyboard(_),
             )
             await state.set_state(AutoListingStates.brand)
     else:
@@ -248,7 +254,8 @@ async def process_deal_type_selection(
             
             await state.update_data(flow="requirement")
             remaining = max_count - used if max_count > 0 else "∞"
-            deal_label = _("deal_type.sale") if deal_type == "sale" else _("deal_type.rent")
+            # Use buyer-specific labels
+            deal_label = _("deal_type.sale_buyer") if deal_type == "sale" else _("deal_type.rent_buyer")
             await callback.message.edit_text(
                 f"🔍 {_('roles.buyer_desc')} ({deal_label})\n\n"
                 f"📊 {_('limits.requirements_remaining').format(remaining=remaining)}\n\n"
@@ -267,6 +274,7 @@ async def process_deal_type_selection(
             
             await state.update_data(flow="listing")
             remaining = max_count - used if max_count > 0 else "∞"
+            # Use seller-specific labels
             deal_label = _("deal_type.sale") if deal_type == "sale" else _("deal_type.rent")
             await callback.message.edit_text(
                 f"🏷️ {_('roles.seller_desc')} ({deal_label})\n\n"

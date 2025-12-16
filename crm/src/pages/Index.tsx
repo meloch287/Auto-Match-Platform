@@ -6,6 +6,7 @@ import { ModerationTab } from "@/components/ModerationTab";
 import { UsersTab } from "@/components/UsersTab";
 import { SubscriptionsTab } from "@/components/SubscriptionsTab";
 import { LimitsTab } from "@/components/LimitsTab";
+import { RecommendedTab } from "@/components/RecommendedTab";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -31,6 +32,8 @@ const Index = () => {
         return <SubscriptionsTab />;
       case "limits":
         return <LimitsTab />;
+      case "recommended":
+        return <RecommendedTab />;
       default:
         return <StatisticsTab />;
     }

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.reference import Category
 from app.models.listing import Listing, PaymentTypeEnum, RenovationStatusEnum, HeatingTypeEnum, ListingStatusEnum
+from app.core.cache import get_cities, get_districts, get_metro_stations
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ from app.bot.keyboards.builders import (
     build_categories_keyboard,
     build_location_type_keyboard,
     build_city_keyboard,
+    build_city_keyboard_static,
     build_district_keyboard,
     build_metro_line_keyboard,
     build_metro_keyboard,
@@ -60,29 +62,35 @@ async def process_category(
 @router.callback_query(LocationCallback.filter(F.type == "city"), ListingStates.location_type)
 async def location_city(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
     await callback.answer()
-    cities = await get_cities()
     await callback.message.edit_text(
         _("location.select_city"),
-        reply_markup=build_city_keyboard(cities, _, lang),
+        reply_markup=build_city_keyboard_static(_, lang=lang),
     )
     await state.set_state(ListingStates.location_select)
 
-@router.callback_query(LocationCallback.filter(F.type == "district"), ListingStates.location_select)
-async def location_district(callback: CallbackQuery, callback_data: LocationCallback, state: FSMContext, _: Any, lang: str) -> None:
-    await callback.answer()
-    await state.update_data(city_id=callback_data.id)
-    districts = await get_districts(callback_data.id)
-    await callback.message.edit_text(
-        _("location.select_district"),
-        reply_markup=build_district_keyboard(districts, _, lang),
-    )
 
-@router.callback_query(LocationCallback.filter(F.type == "select"), ListingStates.location_select)
-async def location_selected(callback: CallbackQuery, callback_data: LocationCallback, state: FSMContext, _: Any) -> None:
+@router.callback_query(F.data.startswith("city_select:"), ListingStates.location_select)
+async def city_selected(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Handle city selection from static list."""
     await callback.answer()
-    await state.update_data(location_id=callback_data.id)
+    city = callback.data.split(":", 1)[1]
+    await state.update_data(city=city, location_id=city)
     await callback.message.edit_text(_("form.price.enter"))
     await state.set_state(ListingStates.price)
+
+
+@router.callback_query(F.data.startswith("city_page:"), ListingStates.location_select)
+async def city_page(callback: CallbackQuery, state: FSMContext, _: Any, lang: str) -> None:
+    """Handle city pagination."""
+    page = int(callback.data.split(":")[1])
+    await callback.answer()
+    await callback.message.edit_text(
+        _("location.select_city"),
+        reply_markup=build_city_keyboard_static(_, page=page, lang=lang),
+    )
+
+
+
 
 @router.callback_query(LocationCallback.filter(F.type == "metro"), ListingStates.location_type)
 async def location_metro(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
@@ -99,7 +107,7 @@ async def metro_line_selected(callback: CallbackQuery, callback_data: LocationCa
 
     await callback.answer()
     await state.update_data(metro_line=callback_data.id)
-    stations = await get_metro_stations(callback_data.id)
+    stations = get_metro_stations(callback_data.id)
     await callback.message.edit_text(
         _("location.select_metro"),
         reply_markup=build_metro_keyboard(stations, _, lang),
@@ -425,10 +433,16 @@ async def confirm_listing(
                 }
                 heating_enum = heat_map.get(heating_str)
             
+            # Get deal type from state
+            from app.models.listing import DealTypeEnum
+            deal_type_str = data.get("deal_type", "sale")
+            deal_type_enum = DealTypeEnum.RENT if deal_type_str == "rent" else DealTypeEnum.SALE
+            
             listing = Listing(
                 user_id=user.id,
                 category_id=category.id,
                 location_id=location_id,
+                deal_type=deal_type_enum,
                 price=Decimal(str(data.get("price", 0))),
                 payment_type=payment_type_enum,
                 down_payment=Decimal(str(data.get("down_payment", 0))) if data.get("down_payment") else None,
@@ -441,13 +455,80 @@ async def confirm_listing(
                 utilities=data.get("utilities", {}),
                 heating_type=heating_enum,
                 description=data.get("description"),
-                status=ListingStatusEnum.PENDING_MODERATION,
+                status=ListingStatusEnum.ACTIVE,  # Auto-approve for now
             )
             
             db_session.add(listing)
+            await db_session.flush()  # Get listing.id
+            
+            # Save photos
+            photos = data.get("photos", [])
+            if photos:
+                from app.models.listing import ListingMedia, ListingMediaTypeEnum
+                for i, photo_file_id in enumerate(photos):
+                    media = ListingMedia(
+                        listing_id=listing.id,
+                        type=ListingMediaTypeEnum.IMAGE,
+                        url=photo_file_id,
+                        order=i,
+                    )
+                    db_session.add(media)
+                logger.info(f"Saved {len(photos)} photos for listing {listing.id}")
+            
             await db_session.commit()
             
             logger.info(f"Created listing {listing.id} for user {user.id}")
+            
+            # Trigger matching and send notifications
+            try:
+                from app.services.match import MatchService
+                from app.services.notification import NotificationService
+                from app.models.user import User
+                from sqlalchemy import select
+                
+                match_service = MatchService(db_session)
+                notifications = await match_service.process_new_listing(listing.id)
+                
+                if notifications:
+                    logger.info(f"Found {len(notifications)} matches for listing {listing.id}")
+                    notification_service = NotificationService(db_session)
+                    bot = callback.bot
+                    
+                    for notif in notifications:
+                        try:
+                            # Get buyer user
+                            result = await db_session.execute(
+                                select(User).where(User.id == notif.buyer_user_id)
+                            )
+                            buyer = result.scalar_one_or_none()
+                            
+                            if buyer and buyer.telegram_id:
+                                is_premium = await notification_service.is_user_premium(buyer.id)
+                                
+                                if is_premium:
+                                    # Send immediately for premium users
+                                    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                                    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                                        [
+                                            InlineKeyboardButton(text="👁️ Смотреть", callback_data=f"match:view:{notif.match_id}"),
+                                            InlineKeyboardButton(text="💬 Связаться", callback_data=f"match:contact:{notif.match_id}"),
+                                        ],
+                                        [
+                                            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"match:reject:{notif.match_id}"),
+                                        ]
+                                    ])
+                                    await bot.send_message(
+                                        chat_id=buyer.telegram_id,
+                                        text=f"🎯 Найдено новое совпадение!\n\nСовпадение: {notif.score}%",
+                                        reply_markup=keyboard,
+                                    )
+                                    logger.info(f"Sent immediate notification to premium user {buyer.telegram_id}")
+                                else:
+                                    logger.info(f"Free user {buyer.telegram_id} - notification delayed 24h")
+                        except Exception as notif_err:
+                            logger.error(f"Failed to send notification: {notif_err}")
+            except Exception as match_err:
+                logger.error(f"Matching error: {match_err}")
         
         await state.clear()
         await callback.message.edit_text(
@@ -473,12 +554,19 @@ async def cancel_listing(callback: CallbackQuery, state: FSMContext, _: Any) -> 
     )
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), ListingStates.category)
-async def back_to_role_from_listing(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
-    from app.bot.keyboards.builders import build_role_keyboard
+async def back_to_deal_type_from_listing(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
+    """Go back from category to deal type selection."""
+    from app.bot.keyboards.builders import build_deal_type_keyboard
     from app.bot.states import OnboardingStates
     await callback.answer()
-    await callback.message.edit_text(_("roles.select"), reply_markup=build_role_keyboard(_))
-    await state.set_state(OnboardingStates.role_select)
+    data = await state.get_data()
+    role = data.get("current_role", "seller")
+    market_type = data.get("market_type", "real_estate")
+    await callback.message.edit_text(
+        _("deal_type.select"),
+        reply_markup=build_deal_type_keyboard(_, market_type, role)
+    )
+    await state.set_state(OnboardingStates.market_type_select)
 
 @router.callback_query(NavigationCallback.filter(F.action == "back"), ListingStates.location_type)
 async def back_to_category(callback: CallbackQuery, state: FSMContext, _: Any) -> None:
@@ -491,82 +579,6 @@ async def back_to_location_type(callback: CallbackQuery, state: FSMContext, _: A
     await callback.answer()
     await callback.message.edit_text(_("location.select_type"), reply_markup=build_location_type_keyboard(_))
     await state.set_state(ListingStates.location_type)
-
-async def get_cities() -> list[dict]:
-    return [
-        {"id": "1", "name_az": "Bakı", "name_ru": "Баку", "name_en": "Baku"},
-        {"id": "2", "name_az": "Sumqayıt", "name_ru": "Сумгаит", "name_en": "Sumgait"},
-        {"id": "3", "name_az": "Gəncə", "name_ru": "Гянджа", "name_en": "Ganja"},
-        {"id": "4", "name_az": "Lənkəran", "name_ru": "Ленкорань", "name_en": "Lankaran"},
-        {"id": "5", "name_az": "Mingəçevir", "name_ru": "Мингечевир", "name_en": "Mingachevir"},
-    ]
-
-async def get_districts(city_id: str) -> list[dict]:
-    if city_id == "1":
-        return [
-            {"id": "11", "name_az": "Nəsimi", "name_ru": "Насими", "name_en": "Nasimi"},
-            {"id": "12", "name_az": "Yasamal", "name_ru": "Ясамал", "name_en": "Yasamal"},
-            {"id": "13", "name_az": "Nizami", "name_ru": "Низами", "name_en": "Nizami"},
-            {"id": "14", "name_az": "Xətai", "name_ru": "Хатаи", "name_en": "Khatai"},
-            {"id": "15", "name_az": "Binəqədi", "name_ru": "Бинагади", "name_en": "Binagadi"},
-            {"id": "16", "name_az": "Sabunçu", "name_ru": "Сабунчу", "name_en": "Sabunchu"},
-            {"id": "17", "name_az": "Suraxanı", "name_ru": "Сураханы", "name_en": "Surakhani"},
-            {"id": "18", "name_az": "Qaradağ", "name_ru": "Гарадаг", "name_en": "Garadagh"},
-        ]
-    return [{"id": f"{city_id}1", "name_az": "Mərkəz", "name_ru": "Центр", "name_en": "Center"}]
-
-METRO_STATIONS = {
-    "green": [
-        {"id": "g1", "name_az": "İçərişəhər", "name_ru": "Ичеришехер", "name_en": "Icherisheher"},
-        {"id": "g2", "name_az": "Sahil", "name_ru": "Сахил", "name_en": "Sahil"},
-        {"id": "g3", "name_az": "Cəfər Cabbarlı", "name_ru": "Джафар Джаббарлы", "name_en": "Jafar Jabbarly"},
-        {"id": "g4", "name_az": "28 May", "name_ru": "28 Мая", "name_en": "28 May"},
-        {"id": "g5", "name_az": "Nizami Gəncəvi", "name_ru": "Низами Гянджеви", "name_en": "Nizami Ganjavi"},
-        {"id": "g6", "name_az": "Elmlər Akademiyası", "name_ru": "Эмляр академиясы", "name_en": "Academy of Sciences"},
-        {"id": "g7", "name_az": "İnşaatçılar", "name_ru": "Иншаатчылар", "name_en": "Inshaatchilar"},
-        {"id": "g8", "name_az": "20 Yanvar", "name_ru": "20 Января", "name_en": "20 January"},
-        {"id": "g9", "name_az": "Memar Əcəmi", "name_ru": "Мемар Аджеми", "name_en": "Memar Ajami"},
-        {"id": "g10", "name_az": "Nəsimi", "name_ru": "Насими", "name_en": "Nasimi"},
-        {"id": "g11", "name_az": "Azadlıq prospekti", "name_ru": "Проспект Азадлыг", "name_en": "Azadlig Avenue"},
-        {"id": "g12", "name_az": "Dərnəgül", "name_ru": "Дарнагюль", "name_en": "Darnagul"},
-        {"id": "g13", "name_az": "Bakmil", "name_ru": "Бакмил", "name_en": "Bakmil"},
-        {"id": "g14", "name_az": "Gənclik", "name_ru": "Гянджлик", "name_en": "Ganjlik"},
-        {"id": "g15", "name_az": "Nəriman Nərimanov", "name_ru": "Нариман Нариманов", "name_en": "Nariman Narimanov"},
-        {"id": "g16", "name_az": "Ulduz", "name_ru": "Улдуз", "name_en": "Ulduz"},
-        {"id": "g17", "name_az": "Koroğlu", "name_ru": "Кёроглу", "name_en": "Koroglu"},
-        {"id": "g18", "name_az": "Qara Qarayev", "name_ru": "Кара Караев", "name_en": "Gara Garayev"},
-        {"id": "g19", "name_az": "Neftçilər", "name_ru": "Нефтчиляр", "name_en": "Neftchilar"},
-        {"id": "g20", "name_az": "Xalqlar Dostluğu", "name_ru": "Халглар Достлугу", "name_en": "Khalglar Dostlugu"},
-        {"id": "g21", "name_az": "Əhmədli", "name_ru": "Ахмедлы", "name_en": "Ahmadli"},
-        {"id": "g22", "name_az": "Həzi Aslanov", "name_ru": "Ази Асланов", "name_en": "Hazi Aslanov"},
-    ],
-    "red": [
-        {"id": "r1", "name_az": "İçərişəhər", "name_ru": "Ичеришехер", "name_en": "Icherisheher"},
-        {"id": "r2", "name_az": "Sahil", "name_ru": "Сахил", "name_en": "Sahil"},
-        {"id": "r3", "name_az": "Cəfər Cabbarlı", "name_ru": "Джафар Джаббарлы", "name_en": "Jafar Jabbarly"},
-        {"id": "r4", "name_az": "28 May", "name_ru": "28 Мая", "name_en": "28 May"},
-        {"id": "r5", "name_az": "Gənclik", "name_ru": "Гянджлик", "name_en": "Ganjlik"},
-        {"id": "r6", "name_az": "Nəriman Nərimanov", "name_ru": "Нариман Нариманов", "name_en": "Nariman Narimanov"},
-        {"id": "r7", "name_az": "Ulduz", "name_ru": "Улдуз", "name_en": "Ulduz"},
-        {"id": "r8", "name_az": "Koroğlu", "name_ru": "Кёроглу", "name_en": "Koroglu"},
-        {"id": "r9", "name_az": "Qara Qarayev", "name_ru": "Кара Караев", "name_en": "Gara Garayev"},
-        {"id": "r10", "name_az": "Neftçilər", "name_ru": "Нефтчиляр", "name_en": "Neftchilar"},
-        {"id": "r11", "name_az": "Xalqlar Dostluğu", "name_ru": "Халглар Достлугу", "name_en": "Khalglar Dostlugu"},
-        {"id": "r12", "name_az": "Əhmədli", "name_ru": "Ахмедлы", "name_en": "Ahmadli"},
-        {"id": "r13", "name_az": "Həzi Aslanov", "name_ru": "Ази Асланов", "name_en": "Hazi Aslanov"},
-    ],
-    "purple": [
-        {"id": "p1", "name_az": "Xocəsən", "name_ru": "Ходжасан", "name_en": "Khojasan"},
-        {"id": "p2", "name_az": "Avtovağzal", "name_ru": "Автовокзал", "name_en": "Avtovagzal"},
-        {"id": "p3", "name_az": "Memar Əcəmi", "name_ru": "Мемар Аджеми", "name_en": "Memar Ajami"},
-        {"id": "p4", "name_az": "8 Noyabr", "name_ru": "8 Ноября", "name_en": "8 November"},
-    ],
-}
-
-async def get_metro_stations(line: str) -> list[dict]:
-
-    return METRO_STATIONS.get(line, [])
-
 async def get_or_create_category(session: AsyncSession, code: str) -> Category:
 
     from app.models.reference import Category

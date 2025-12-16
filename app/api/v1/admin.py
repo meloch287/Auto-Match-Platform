@@ -13,6 +13,7 @@ from app.models.listing import Listing, ListingStatusEnum
 from app.models.match import Match, MatchStatusEnum
 from app.models.requirement import Requirement, RequirementStatusEnum
 from app.models.user import User
+from app.models.auto import AutoListing, AutoRequirement, AutoMatch, AutoStatusEnum
 from app.repositories.listing import ListingRepository
 from app.repositories.user import UserRepository
 from app.schemas.admin import (
@@ -42,6 +43,320 @@ from app.schemas.common import PaginationMeta
 from app.services.listing import ListingService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+
+async def trigger_matching_for_listing(db: AsyncSession, listing_id: UUID) -> int:
+    """
+    Trigger Auto-Match for a newly approved listing.
+    Finds matching requirements and creates matches, then sends notifications.
+    
+    Returns number of matches created.
+    """
+    from app.models.listing import Listing, ListingStatusEnum
+    from app.models.requirement import Requirement, RequirementStatusEnum
+    from app.models.match import Match, MatchStatusEnum
+    from app.services.matching.scorer import MatchScorer, ListingData
+    from app.core.config import get_settings
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing = result.scalar_one_or_none()
+    
+    if not listing or listing.status != ListingStatusEnum.ACTIVE:
+        return 0
+    
+    # Find matching requirements
+    result = await db.execute(
+        select(Requirement).where(
+            and_(
+                Requirement.category_id == listing.category_id,
+                Requirement.status == RequirementStatusEnum.ACTIVE,
+            )
+        )
+    )
+    requirements = result.scalars().all()
+    
+    scorer = MatchScorer()
+    matches_created = 0
+    listing_data = ListingData.from_model(listing)
+    
+    for requirement in requirements:
+        # Check if match already exists
+        existing = await db.execute(
+            select(Match).where(
+                and_(
+                    Match.listing_id == listing.id,
+                    Match.requirement_id == requirement.id,
+                )
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+        
+        score = scorer.calculate_total_score(listing_data, requirement)
+        
+        if score >= 60:
+            match = Match(
+                listing_id=listing.id,
+                requirement_id=requirement.id,
+                score=score,
+                status=MatchStatusEnum.NEW,
+            )
+            db.add(match)
+            matches_created += 1
+    
+    if matches_created > 0:
+        await db.commit()
+        logger.info(f"Created {matches_created} matches for listing {listing_id}")
+        
+        # Send notifications to buyers
+        await send_match_notifications_for_listing(db, listing_id)
+    
+    return matches_created
+
+
+async def send_match_notifications_for_listing(db: AsyncSession, listing_id: UUID) -> None:
+    """Send Telegram notifications to buyers about new matches."""
+    from app.models.match import Match, MatchStatusEnum
+    from app.models.requirement import Requirement
+    from app.models.listing import Listing
+    from app.models.user import User, SubscriptionTypeEnum
+    from app.core.config import get_settings
+    import httpx
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    settings = get_settings()
+    
+    # Get all new matches for this listing
+    result = await db.execute(
+        select(Match, Requirement, Listing)
+        .join(Requirement, Match.requirement_id == Requirement.id)
+        .join(Listing, Match.listing_id == Listing.id)
+        .where(
+            and_(
+                Match.listing_id == listing_id,
+                Match.status == MatchStatusEnum.NEW,
+            )
+        )
+    )
+    rows = result.all()
+    
+    for match, requirement, listing in rows:
+        # Get buyer user
+        user_result = await db.execute(select(User).where(User.id == requirement.user_id))
+        user = user_result.scalar_one_or_none()
+        
+        if not user or not user.telegram_id:
+            continue
+        
+        # Check if premium (immediate) or free (delayed)
+        is_premium = user.subscription_type != SubscriptionTypeEnum.FREE
+        
+        if not is_premium:
+            # For free users, skip immediate notification (they get delayed via worker)
+            continue
+        
+        # Send notification via Telegram Bot API
+        try:
+            price = float(listing.price) if listing.price else 0
+            message = (
+                f"🎯 Найдено новое совпадение!\n\n"
+                f"💰 Цена: {price:,.0f} AZN\n"
+                f"🎯 Совпадение: {match.score}%\n\n"
+                f"Используйте /matches чтобы посмотреть"
+            )
+            
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
+                    json={
+                        "chat_id": user.telegram_id,
+                        "text": message,
+                        "parse_mode": "HTML",
+                    },
+                    timeout=10.0,
+                )
+            logger.info(f"Sent match notification to user {user.id}")
+        except Exception as e:
+            logger.warning(f"Failed to send notification to user {user.id}: {e}")
+
+
+async def trigger_matching_for_auto_listing(db: AsyncSession, listing_id: UUID) -> int:
+    """
+    Trigger Auto-Match for a newly approved auto listing.
+    Finds matching auto requirements and creates matches, then sends notifications.
+    
+    Returns number of matches created.
+    """
+    from app.models.auto import AutoListing, AutoRequirement, AutoMatch, AutoStatusEnum
+    from app.core.config import get_settings
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    result = await db.execute(select(AutoListing).where(AutoListing.id == listing_id))
+    listing = result.scalar_one_or_none()
+    
+    if not listing or listing.status != AutoStatusEnum.ACTIVE:
+        return 0
+    
+    # Find matching auto requirements
+    result = await db.execute(
+        select(AutoRequirement).where(
+            and_(
+                AutoRequirement.status == "active",
+                AutoRequirement.deal_type == listing.deal_type.value,
+            )
+        )
+    )
+    requirements = result.scalars().all()
+    
+    matches_created = 0
+    
+    for requirement in requirements:
+        # Check if match already exists
+        existing = await db.execute(
+            select(AutoMatch).where(
+                and_(
+                    AutoMatch.auto_listing_id == listing.id,
+                    AutoMatch.auto_requirement_id == requirement.id,
+                )
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+        
+        # Calculate score based on criteria match
+        score = 0
+        max_score = 0
+        
+        # Brand match (30 points)
+        max_score += 30
+        if requirement.brands and listing.brand in requirement.brands:
+            score += 30
+        
+        # Year match (20 points)
+        max_score += 20
+        if requirement.year_min and requirement.year_max:
+            if requirement.year_min <= listing.year <= requirement.year_max:
+                score += 20
+        elif requirement.year_min and listing.year >= requirement.year_min:
+            score += 20
+        elif requirement.year_max and listing.year <= requirement.year_max:
+            score += 20
+        elif not requirement.year_min and not requirement.year_max:
+            score += 20
+        
+        # Price match (30 points)
+        max_score += 30
+        listing_price = float(listing.price) if listing.price else 0
+        price_min = float(requirement.price_min) if requirement.price_min else 0
+        price_max = float(requirement.price_max) if requirement.price_max else float('inf')
+        if price_min <= listing_price <= price_max:
+            score += 30
+        
+        # Mileage match (10 points)
+        if listing.mileage is not None and requirement.mileage_max:
+            max_score += 10
+            if listing.mileage <= requirement.mileage_max:
+                score += 10
+        
+        # City match (10 points)
+        if requirement.city:
+            max_score += 10
+            if listing.city and listing.city.lower() == requirement.city.lower():
+                score += 10
+        
+        # Calculate percentage score
+        final_score = int((score / max_score) * 100) if max_score > 0 else 0
+        
+        if final_score >= 60:
+            match = AutoMatch(
+                auto_listing_id=listing.id,
+                auto_requirement_id=requirement.id,
+                score=final_score,
+                status="pending",
+            )
+            db.add(match)
+            matches_created += 1
+    
+    if matches_created > 0:
+        await db.commit()
+        logger.info(f"Created {matches_created} auto matches for listing {listing_id}")
+        
+        # Send notifications to buyers
+        await send_match_notifications_for_auto_listing(db, listing_id)
+    
+    return matches_created
+
+
+async def send_match_notifications_for_auto_listing(db: AsyncSession, listing_id: UUID) -> None:
+    """Send Telegram notifications to buyers about new auto matches."""
+    from app.models.auto import AutoMatch, AutoRequirement, AutoListing
+    from app.models.user import User, SubscriptionTypeEnum
+    from app.core.config import get_settings
+    import httpx
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    settings = get_settings()
+    
+    # Get all new matches for this listing
+    result = await db.execute(
+        select(AutoMatch, AutoRequirement, AutoListing)
+        .join(AutoRequirement, AutoMatch.auto_requirement_id == AutoRequirement.id)
+        .join(AutoListing, AutoMatch.auto_listing_id == AutoListing.id)
+        .where(
+            and_(
+                AutoMatch.auto_listing_id == listing_id,
+                AutoMatch.status == "pending",
+            )
+        )
+    )
+    rows = result.all()
+    
+    for match, requirement, listing in rows:
+        # Get buyer user
+        user_result = await db.execute(select(User).where(User.id == requirement.user_id))
+        user = user_result.scalar_one_or_none()
+        
+        if not user or not user.telegram_id:
+            continue
+        
+        # Check if premium (immediate) or free (delayed)
+        is_premium = user.subscription_type != SubscriptionTypeEnum.FREE
+        
+        if not is_premium:
+            # For free users, skip immediate notification (they get delayed via worker)
+            continue
+        
+        # Send notification via Telegram Bot API
+        try:
+            price = float(listing.price) if listing.price else 0
+            message = (
+                f"🚗 Найдено новое авто!\n\n"
+                f"🏷️ {listing.brand} {listing.model} ({listing.year})\n"
+                f"💰 Цена: {price:,.0f} AZN\n"
+                f"🎯 Совпадение: {match.score}%\n\n"
+                f"Используйте /matches чтобы посмотреть"
+            )
+            
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage",
+                    json={
+                        "chat_id": user.telegram_id,
+                        "text": message,
+                        "parse_mode": "HTML",
+                    },
+                    timeout=10.0,
+                )
+            logger.info(f"Sent auto match notification to user {user.id}")
+        except Exception as e:
+            logger.warning(f"Failed to send auto notification to user {user.id}: {e}")
 
 async def require_admin(current_user: CurrentUser) -> User:
 
@@ -504,6 +819,12 @@ async def approve_listing(
     expiry_days = request.expiry_days if request else 45
     approved_listing = await listing_service.approve_listing(listing_id, expiry_days=expiry_days)
     
+    # Trigger Auto-Match processing
+    try:
+        await trigger_matching_for_listing(db, listing_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger matching for listing {listing_id}: {e}")
     
     return create_success_response(
         data=ModerationActionResponse(
@@ -960,6 +1281,69 @@ async def get_stats(
         contact_reveals=contact_reveals,
     )
     
+    # Auto listings metrics
+    total_auto_listings = (await db.execute(
+        select(func.count(AutoListing.id)).where(AutoListing.status != AutoStatusEnum.DELETED)
+    )).scalar() or 0
+    
+    active_auto_listings = (await db.execute(
+        select(func.count(AutoListing.id)).where(AutoListing.status == AutoStatusEnum.ACTIVE)
+    )).scalar() or 0
+    
+    pending_auto_listings = (await db.execute(
+        select(func.count(AutoListing.id)).where(AutoListing.status == AutoStatusEnum.PENDING_MODERATION)
+    )).scalar() or 0
+    
+    sale_auto_listings = (await db.execute(
+        select(func.count(AutoListing.id)).where(
+            and_(AutoListing.deal_type == "sale", AutoListing.status != AutoStatusEnum.DELETED)
+        )
+    )).scalar() or 0
+    
+    rent_auto_listings = (await db.execute(
+        select(func.count(AutoListing.id)).where(
+            and_(AutoListing.deal_type == "rent", AutoListing.status != AutoStatusEnum.DELETED)
+        )
+    )).scalar() or 0
+    
+    from app.schemas.admin import AutoListingMetrics, AutoRequirementMetrics
+    
+    auto_listing_metrics = AutoListingMetrics(
+        total_listings=total_auto_listings,
+        active_listings=active_auto_listings,
+        pending_moderation=pending_auto_listings,
+        sale_listings=sale_auto_listings,
+        rent_listings=rent_auto_listings,
+    )
+    
+    # Auto requirements metrics (status is string, not enum)
+    total_auto_requirements = (await db.execute(
+        select(func.count(AutoRequirement.id)).where(AutoRequirement.status != "deleted")
+    )).scalar() or 0
+    
+    active_auto_requirements = (await db.execute(
+        select(func.count(AutoRequirement.id)).where(AutoRequirement.status == "active")
+    )).scalar() or 0
+    
+    sale_auto_requirements = (await db.execute(
+        select(func.count(AutoRequirement.id)).where(
+            and_(AutoRequirement.deal_type == "sale", AutoRequirement.status != "deleted")
+        )
+    )).scalar() or 0
+    
+    rent_auto_requirements = (await db.execute(
+        select(func.count(AutoRequirement.id)).where(
+            and_(AutoRequirement.deal_type == "rent", AutoRequirement.status != "deleted")
+        )
+    )).scalar() or 0
+    
+    auto_requirement_metrics = AutoRequirementMetrics(
+        total_requirements=total_auto_requirements,
+        active_requirements=active_auto_requirements,
+        sale_requirements=sale_auto_requirements,
+        rent_requirements=rent_auto_requirements,
+    )
+    
     return create_success_response(
         data=AdminStatsResponse(
             users=user_metrics,
@@ -967,6 +1351,8 @@ async def get_stats(
             requirements=requirement_metrics,
             matches=match_metrics,
             chats=chat_metrics,
+            auto_listings=auto_listing_metrics,
+            auto_requirements=auto_requirement_metrics,
             generated_at=now,
         ).model_dump()
     )
@@ -2193,3 +2579,773 @@ async def update_global_settings(
             free_requirements_per_month=db_settings.get("free_requirements_per_month", config.free_requirements_per_month),
         ).model_dump()
     )
+
+
+# ============ AUTO ENDPOINTS ============
+
+@router.get("/auto/listings", response_model=dict)
+async def get_auto_listings(
+    db: DBSession,
+    admin: AdminUser,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None, description="Filter by status"),
+) -> dict:
+    """Get all auto listings with optional status filter."""
+    conditions = [AutoListing.status != AutoStatusEnum.DELETED]
+    if status:
+        try:
+            status_enum = AutoStatusEnum(status)
+            conditions.append(AutoListing.status == status_enum)
+        except ValueError:
+            pass
+    
+    total_query = select(func.count(AutoListing.id)).where(and_(*conditions))
+    total_result = await db.execute(total_query)
+    total_items = total_result.scalar() or 0
+    
+    offset = (page - 1) * page_size
+    total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
+    
+    query = (
+        select(AutoListing, User)
+        .join(User, AutoListing.user_id == User.id)
+        .where(and_(*conditions))
+        .order_by(AutoListing.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    listings = []
+    for listing, user in rows:
+        listings.append({
+            "id": str(listing.id),
+            "user_id": str(listing.user_id),
+            "brand": listing.brand,
+            "model": listing.model,
+            "year": listing.year,
+            "mileage": listing.mileage,
+            "price": float(listing.price) if listing.price else None,
+            "city": listing.city,
+            "deal_type": listing.deal_type,
+            "status": listing.status.value,
+            "created_at": listing.created_at.isoformat(),
+            "seller_telegram_id": user.telegram_id,
+            "seller_telegram_username": user.telegram_username,
+        })
+    
+    pagination = PaginationMeta(
+        page=page,
+        page_size=page_size,
+        total_items=total_items,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+    )
+    
+    return create_success_response(
+        data={
+            "listings": listings,
+            "pagination": pagination.model_dump(),
+        },
+        pagination=pagination.model_dump(),
+    )
+
+
+@router.post("/auto/listings/{listing_id}/status", response_model=dict)
+async def change_auto_listing_status(
+    listing_id: UUID,
+    db: DBSession,
+    admin: AdminUser,
+    new_status: str = Query(..., description="New status for the listing"),
+) -> dict:
+    """Change auto listing status."""
+    try:
+        status_enum = AutoStatusEnum(new_status)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=create_error_response(
+                code="INVALID_STATUS",
+                message=f"Invalid status: {new_status}",
+            ),
+        )
+    
+    result = await db.execute(select(AutoListing).where(AutoListing.id == listing_id))
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=create_error_response(
+                code="LISTING_NOT_FOUND",
+                message="Auto listing not found",
+            ),
+        )
+    
+    old_status = listing.status.value
+    listing.status = status_enum
+    await db.commit()
+    
+    return create_success_response(
+        data={
+            "listing_id": str(listing_id),
+            "old_status": old_status,
+            "new_status": new_status,
+        }
+    )
+
+
+@router.post("/auto/moderation/{listing_id}/approve", response_model=dict)
+async def approve_auto_listing(
+    listing_id: UUID,
+    db: DBSession,
+    admin: AdminUser,
+) -> dict:
+    """
+    Approve an auto listing and set it to active status.
+    
+    Sets the listing status to 'active' and triggers Auto-Match processing
+    to find matching requirements and send notifications to premium buyers.
+    
+    Args:
+        listing_id: Auto listing UUID
+        db: Database session
+        admin: Admin user (authenticated)
+        
+    Returns:
+        Approval confirmation with matches created count
+    """
+    result = await db.execute(select(AutoListing).where(AutoListing.id == listing_id))
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=create_error_response(
+                code="LISTING_NOT_FOUND",
+                message="Auto listing not found",
+            ),
+        )
+    
+    if listing.status != AutoStatusEnum.PENDING_MODERATION:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=create_error_response(
+                code="INVALID_STATUS",
+                message=f"Listing is not pending moderation (current status: {listing.status.value})",
+            ),
+        )
+    
+    # Approve the listing
+    listing.status = AutoStatusEnum.ACTIVE
+    await db.commit()
+    
+    # Trigger Auto-Match processing
+    matches_created = 0
+    try:
+        matches_created = await trigger_matching_for_auto_listing(db, listing_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to trigger matching for auto listing {listing_id}: {e}")
+    
+    return create_success_response(
+        data={
+            "listing_id": str(listing_id),
+            "status": "active",
+            "message": "Auto listing approved successfully",
+            "matches_created": matches_created,
+        }
+    )
+
+
+@router.post("/auto/moderation/{listing_id}/reject", response_model=dict)
+async def reject_auto_listing(
+    listing_id: UUID,
+    db: DBSession,
+    admin: AdminUser,
+    reason: str = Query(..., description="Rejection reason"),
+) -> dict:
+    """
+    Reject an auto listing with a reason.
+    
+    Args:
+        listing_id: Auto listing UUID
+        db: Database session
+        admin: Admin user (authenticated)
+        reason: Rejection reason
+        
+    Returns:
+        Rejection confirmation
+    """
+    result = await db.execute(select(AutoListing).where(AutoListing.id == listing_id))
+    listing = result.scalar_one_or_none()
+    
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=create_error_response(
+                code="LISTING_NOT_FOUND",
+                message="Auto listing not found",
+            ),
+        )
+    
+    if listing.status != AutoStatusEnum.PENDING_MODERATION:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=create_error_response(
+                code="INVALID_STATUS",
+                message=f"Listing is not pending moderation (current status: {listing.status.value})",
+            ),
+        )
+    
+    listing.status = AutoStatusEnum.REJECTED
+    listing.rejection_reason = reason
+    await db.commit()
+    
+    return create_success_response(
+        data={
+            "listing_id": str(listing_id),
+            "status": "rejected",
+            "message": "Auto listing rejected",
+        }
+    )
+
+
+@router.get("/auto/requirements", response_model=dict)
+async def get_auto_requirements(
+    db: DBSession,
+    admin: AdminUser,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None, description="Filter by status"),
+) -> dict:
+    """Get all auto requirements with optional status filter."""
+    conditions = [AutoRequirement.status != "deleted"]
+    if status:
+        conditions.append(AutoRequirement.status == status)
+    
+    total_query = select(func.count(AutoRequirement.id)).where(and_(*conditions))
+    total_result = await db.execute(total_query)
+    total_items = total_result.scalar() or 0
+    
+    offset = (page - 1) * page_size
+    total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
+    
+    query = (
+        select(AutoRequirement, User)
+        .join(User, AutoRequirement.user_id == User.id)
+        .where(and_(*conditions))
+        .order_by(AutoRequirement.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    requirements = []
+    for req, user in rows:
+        requirements.append({
+            "id": str(req.id),
+            "user_id": str(req.user_id),
+            "brands": req.brands,
+            "year_min": req.year_min,
+            "year_max": req.year_max,
+            "price_min": float(req.price_min) if req.price_min else None,
+            "price_max": float(req.price_max) if req.price_max else None,
+            "mileage_max": req.mileage_max,
+            "city": req.city,
+            "deal_type": req.deal_type,
+            "status": req.status,
+            "created_at": req.created_at.isoformat(),
+            "buyer_telegram_id": user.telegram_id,
+            "buyer_telegram_username": user.telegram_username,
+        })
+    
+    pagination = PaginationMeta(
+        page=page,
+        page_size=page_size,
+        total_items=total_items,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1,
+    )
+    
+    return create_success_response(
+        data={
+            "requirements": requirements,
+            "pagination": pagination.model_dump(),
+        },
+        pagination=pagination.model_dump(),
+    )
+
+
+@router.post("/auto/requirements/{requirement_id}/status", response_model=dict)
+async def change_auto_requirement_status(
+    requirement_id: UUID,
+    db: DBSession,
+    admin: AdminUser,
+    new_status: str = Query(..., description="New status for the requirement"),
+) -> dict:
+    """Change auto requirement status."""
+    result = await db.execute(select(AutoRequirement).where(AutoRequirement.id == requirement_id))
+    requirement = result.scalar_one_or_none()
+    
+    if not requirement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=create_error_response(
+                code="REQUIREMENT_NOT_FOUND",
+                message="Auto requirement not found",
+            ),
+        )
+    
+    old_status = requirement.status
+    requirement.status = new_status
+    await db.commit()
+    
+    return create_success_response(
+        data={
+            "requirement_id": str(requirement_id),
+            "old_status": old_status,
+            "new_status": new_status,
+        }
+    )
+
+# ============ EXPORT ENDPOINTS ============
+
+from fastapi.responses import StreamingResponse
+import csv
+import io
+
+@router.get("/export/users")
+async def export_users_csv(
+    db: DBSession,
+    admin: AdminUser,
+) -> StreamingResponse:
+    """
+    Export all users to CSV.
+    
+    Returns CSV file with user data including telegram_id, username,
+    subscription status, listings count, requirements count.
+    """
+    result = await db.execute(
+        select(User).order_by(User.created_at.desc())
+    )
+    users = result.scalars().all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "ID", "Telegram ID", "Username", "Language", 
+        "Subscription", "Subscription Expires", "Is Blocked",
+        "Created At"
+    ])
+    
+    for user in users:
+        writer.writerow([
+            str(user.id),
+            user.telegram_id,
+            user.telegram_username or "",
+            user.language.value if user.language else "",
+            user.subscription_type.value if user.subscription_type else "free",
+            user.subscription_expires_at.isoformat() if user.subscription_expires_at else "",
+            "Yes" if user.is_blocked else "No",
+            user.created_at.isoformat() if user.created_at else "",
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=users.csv"}
+    )
+
+
+@router.get("/export/listings")
+async def export_listings_csv(
+    db: DBSession,
+    admin: AdminUser,
+) -> StreamingResponse:
+    """
+    Export all listings to CSV.
+    
+    Returns CSV file with listing data including price, rooms, area,
+    location, seller info.
+    """
+    result = await db.execute(
+        select(Listing, User)
+        .join(User, Listing.user_id == User.id)
+        .where(Listing.status != ListingStatusEnum.DELETED)
+        .order_by(Listing.created_at.desc())
+    )
+    rows = result.all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "ID", "Seller Telegram ID", "Seller Username", "Price (AZN)",
+        "Rooms", "Area (m²)", "Floor", "Building Floors",
+        "Status", "Is VIP", "Deal Type", "Created At"
+    ])
+    
+    for listing, user in rows:
+        deal_type = listing.deal_type.value if listing.deal_type else "sale"
+        writer.writerow([
+            str(listing.id),
+            user.telegram_id,
+            user.telegram_username or "",
+            float(listing.price) if listing.price else "",
+            listing.rooms or "",
+            float(listing.area) if listing.area else "",
+            listing.floor or "",
+            listing.building_floors or "",
+            listing.status.value,
+            "Yes" if listing.is_vip else "No",
+            deal_type,
+            listing.created_at.isoformat() if listing.created_at else "",
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=listings.csv"}
+    )
+
+
+@router.get("/export/requirements")
+async def export_requirements_csv(
+    db: DBSession,
+    admin: AdminUser,
+) -> StreamingResponse:
+    """
+    Export all requirements to CSV.
+    
+    Returns CSV file with requirement data including price range,
+    rooms range, area range, buyer info.
+    """
+    result = await db.execute(
+        select(Requirement, User)
+        .join(User, Requirement.user_id == User.id)
+        .where(Requirement.status != RequirementStatusEnum.DELETED)
+        .order_by(Requirement.created_at.desc())
+    )
+    rows = result.all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "ID", "Buyer Telegram ID", "Buyer Username",
+        "Price Min (AZN)", "Price Max (AZN)",
+        "Rooms Min", "Rooms Max",
+        "Area Min (m²)", "Area Max (m²)",
+        "Status", "Deal Type", "Created At"
+    ])
+    
+    for req, user in rows:
+        deal_type = req.deal_type.value if req.deal_type else "sale"
+        writer.writerow([
+            str(req.id),
+            user.telegram_id,
+            user.telegram_username or "",
+            float(req.price_min) if req.price_min else "",
+            float(req.price_max) if req.price_max else "",
+            req.rooms_min or "",
+            req.rooms_max or "",
+            float(req.area_min) if req.area_min else "",
+            float(req.area_max) if req.area_max else "",
+            req.status.value,
+            deal_type,
+            req.created_at.isoformat() if req.created_at else "",
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=requirements.csv"}
+    )
+
+
+@router.get("/export/matches")
+async def export_matches_csv(
+    db: DBSession,
+    admin: AdminUser,
+) -> StreamingResponse:
+    """
+    Export all matches to CSV.
+    """
+    result = await db.execute(
+        select(Match, Listing, Requirement)
+        .join(Listing, Match.listing_id == Listing.id)
+        .join(Requirement, Match.requirement_id == Requirement.id)
+        .order_by(Match.created_at.desc())
+    )
+    rows = result.all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "Match ID", "Score (%)", "Status",
+        "Listing ID", "Listing Price",
+        "Requirement ID", "Requirement Price Range",
+        "Created At"
+    ])
+    
+    for match, listing, req in rows:
+        price_range = f"{float(req.price_min) if req.price_min else 0} - {float(req.price_max) if req.price_max else 0}"
+        writer.writerow([
+            str(match.id),
+            match.score,
+            match.status.value,
+            str(listing.id),
+            float(listing.price) if listing.price else "",
+            str(req.id),
+            price_range,
+            match.created_at.isoformat() if match.created_at else "",
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=matches.csv"}
+    )
+
+
+# ============== Recommended Listings ==============
+
+@router.get("/recommended", response_model=dict)
+async def get_recommended_listings(
+    db: DBSession,
+    admin: AdminUser,
+) -> dict:
+    """Get all recommended listings configured by admin."""
+    from app.models.recommended import RecommendedListing
+    from app.models.listing import Listing, ListingMedia
+    
+    result = await db.execute(
+        select(RecommendedListing, Listing)
+        .join(Listing, RecommendedListing.listing_id == Listing.id)
+        .order_by(RecommendedListing.order)
+    )
+    rows = result.all()
+    
+    recommended = []
+    for rec, listing in rows:
+        # Get first photo
+        media_result = await db.execute(
+            select(ListingMedia)
+            .where(ListingMedia.listing_id == listing.id)
+            .order_by(ListingMedia.order)
+            .limit(1)
+        )
+        media = media_result.scalar_one_or_none()
+        
+        recommended.append({
+            "id": str(rec.id),
+            "listing_id": str(listing.id),
+            "order": rec.order,
+            "is_random": rec.is_random,
+            "listing": {
+                "id": str(listing.id),
+                "price": float(listing.price) if listing.price else None,
+                "rooms": listing.rooms,
+                "area": float(listing.area) if listing.area else None,
+                "floor": listing.floor,
+                "status": listing.status.value,
+                "photo_url": media.url if media else None,
+            }
+        })
+    
+    return create_success_response(data={"recommended": recommended})
+
+
+@router.get("/recommended/available-listings", response_model=dict)
+async def get_available_listings_for_recommended(
+    db: DBSession,
+    admin: AdminUser,
+    search: str | None = Query(default=None, description="Search by ID or price"),
+) -> dict:
+    """Get active listings available to add as recommended."""
+    from app.models.listing import Listing, ListingMedia, ListingStatusEnum
+    from app.models.recommended import RecommendedListing
+    
+    # Get already recommended listing IDs
+    rec_result = await db.execute(select(RecommendedListing.listing_id))
+    recommended_ids = {row[0] for row in rec_result.all()}
+    
+    # Get active listings not already recommended
+    query = select(Listing).where(
+        Listing.status == ListingStatusEnum.ACTIVE,
+        ~Listing.id.in_(recommended_ids) if recommended_ids else True,
+    ).order_by(Listing.created_at.desc()).limit(50)
+    
+    result = await db.execute(query)
+    listings = result.scalars().all()
+    
+    available = []
+    for listing in listings:
+        media_result = await db.execute(
+            select(ListingMedia)
+            .where(ListingMedia.listing_id == listing.id)
+            .order_by(ListingMedia.order)
+            .limit(1)
+        )
+        media = media_result.scalar_one_or_none()
+        
+        available.append({
+            "id": str(listing.id),
+            "price": float(listing.price) if listing.price else None,
+            "rooms": listing.rooms,
+            "area": float(listing.area) if listing.area else None,
+            "floor": listing.floor,
+            "photo_url": media.url if media else None,
+        })
+    
+    return create_success_response(data={"listings": available})
+
+
+@router.post("/recommended", response_model=dict)
+async def add_recommended_listing(
+    db: DBSession,
+    admin: AdminUser,
+    listing_id: UUID = Query(..., description="Listing ID to add"),
+) -> dict:
+    """Add a listing to recommended."""
+    from app.models.recommended import RecommendedListing
+    from app.models.listing import Listing
+    
+    # Check listing exists
+    result = await db.execute(select(Listing).where(Listing.id == listing_id))
+    listing = result.scalar_one_or_none()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    
+    # Check not already recommended
+    existing = await db.execute(
+        select(RecommendedListing).where(RecommendedListing.listing_id == listing_id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Listing already recommended")
+    
+    # Get max order
+    max_order_result = await db.execute(
+        select(func.max(RecommendedListing.order))
+    )
+    max_order = max_order_result.scalar() or 0
+    
+    rec = RecommendedListing(
+        listing_id=listing_id,
+        order=max_order + 1,
+        is_random=False,
+    )
+    db.add(rec)
+    await db.commit()
+    
+    return create_success_response(data={"id": str(rec.id), "message": "Added to recommended"})
+
+
+@router.delete("/recommended/{rec_id}", response_model=dict)
+async def remove_recommended_listing(
+    rec_id: UUID,
+    db: DBSession,
+    admin: AdminUser,
+) -> dict:
+    """Remove a listing from recommended."""
+    from app.models.recommended import RecommendedListing
+    
+    result = await db.execute(
+        select(RecommendedListing).where(RecommendedListing.id == rec_id)
+    )
+    rec = result.scalar_one_or_none()
+    
+    if not rec:
+        raise HTTPException(status_code=404, detail="Recommended listing not found")
+    
+    await db.delete(rec)
+    await db.commit()
+    
+    return create_success_response(data={"message": "Removed from recommended"})
+
+
+@router.post("/recommended/set-random", response_model=dict)
+async def set_random_recommended(
+    db: DBSession,
+    admin: AdminUser,
+    enabled: bool = Query(..., description="Enable random mode"),
+) -> dict:
+    """Enable/disable random mode for recommended listings."""
+    from app.models.recommended import RecommendedListing
+    from app.models.listing import Listing, ListingStatusEnum
+    import random
+    
+    # Clear existing recommended
+    await db.execute(
+        select(RecommendedListing).execution_options(synchronize_session="fetch")
+    )
+    result = await db.execute(select(RecommendedListing))
+    for rec in result.scalars().all():
+        await db.delete(rec)
+    
+    if enabled:
+        # Get random active listings
+        listings_result = await db.execute(
+            select(Listing)
+            .where(Listing.status == ListingStatusEnum.ACTIVE)
+        )
+        all_listings = listings_result.scalars().all()
+        
+        # Pick up to 5 random
+        random_listings = random.sample(all_listings, min(5, len(all_listings)))
+        
+        for i, listing in enumerate(random_listings):
+            rec = RecommendedListing(
+                listing_id=listing.id,
+                order=i,
+                is_random=True,
+            )
+            db.add(rec)
+    
+    await db.commit()
+    
+    return create_success_response(data={"random_enabled": enabled})
+
+
+@router.post("/recommended/reorder", response_model=dict)
+async def reorder_recommended(
+    db: DBSession,
+    admin: AdminUser,
+    order: list[str] = Query(..., description="List of recommended IDs in new order"),
+) -> dict:
+    """Reorder recommended listings."""
+    from app.models.recommended import RecommendedListing
+    
+    for i, rec_id in enumerate(order):
+        result = await db.execute(
+            select(RecommendedListing).where(RecommendedListing.id == UUID(rec_id))
+        )
+        rec = result.scalar_one_or_none()
+        if rec:
+            rec.order = i
+    
+    await db.commit()
+    
+    return create_success_response(data={"message": "Reordered successfully"})
